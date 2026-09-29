@@ -1,0 +1,55 @@
+{
+ "actions": [],
+ "creation": "2026-09-29 18:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "istable": 1,
+ "field_order": [
+  "path",
+  "http_method",
+  "method",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "path",
+   "fieldtype": "Data",
+   "label": "Path",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Clean route under the base path, e.g. /callrecords/v1.0/records (served at <base_path>/callrecords/v1.0/records)."
+  },
+  {
+   "fieldname": "http_method",
+   "fieldtype": "Select",
+   "label": "HTTP Method",
+   "options": "GET\nPOST\nPUT\nPATCH\nDELETE",
+   "default": "GET",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "method",
+   "fieldtype": "Data",
+   "label": "Whitelisted Method",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Dotted path of the @frappe.whitelist() function that answers it, e.g. jambonz_integration.gateway_api.get_call_records"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "links": [],
+ "modified": "2026-09-29 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fraxis Socket IO",
+ "name": "Fraxis Route",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

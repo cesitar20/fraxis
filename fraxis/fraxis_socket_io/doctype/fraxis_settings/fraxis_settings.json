@@ -23,7 +23,9 @@
   "odata_include_doctypes",
   "odata_exclude_doctypes",
   "odata_v2_section",
-  "odata_functions"
+  "odata_functions",
+  "routes_section",
+  "routes"
  ],
  "fields": [
   {
@@ -146,10 +148,22 @@
    "fieldtype": "Table",
    "label": "Functions",
    "options": "Fraxis OData Function"
+  },
+  {
+   "fieldname": "routes_section",
+   "fieldtype": "Section Break",
+   "label": "Routes",
+   "description": "Clean REST routes served by the gateway, each answered by a whitelisted method with the same Bearer authentication, e.g. GET /callrecords/v1.0/records."
+  },
+  {
+   "fieldname": "routes",
+   "fieldtype": "Table",
+   "label": "Routes",
+   "options": "Fraxis Route"
   }
  ],
  "links": [],
- "modified": "2026-09-29 14:30:00.000000",
+ "modified": "2026-09-29 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fraxis Socket IO",
  "name": "Fraxis Settings",
