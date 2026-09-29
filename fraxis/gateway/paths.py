@@ -80,6 +80,14 @@ def resolve(path: str) -> Route:
     if route := _static_routes().get(sub):
         return route
 
+    if verbs := config.get("routes").get(sub):
+        # Clean route from Fraxis Settings > Routes, answered by a whitelisted method.
+        verb = frappe.local.request.method
+        if entry := verbs.get(verb):
+            return Route("api", f"{API_V2}/method/{entry['method']}")
+        frappe.local.fraxis_allowed_methods = sorted(verbs)
+        return Route("api", f"{GATEWAY_METHOD}.method_not_allowed")
+
     if sub.startswith("/api/"):
         return Route("api", API_V2 + sub[len("/api"):])
 
@@ -90,7 +98,7 @@ def resolve(path: str) -> Route:
             return translate(sub[len("/odata/v2/") :], dialect="v2")
         return translate(sub[len("/odata/"):])
 
-    return Route("api", NOT_FOUND, auth="public")
+    return Route("api", NOT_FOUND)  # authenticated: a valid caller gets 404, others 401
 
 
 def route_request() -> None:

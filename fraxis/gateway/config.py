@@ -12,6 +12,8 @@ it on save, so reading it from ``before_request`` on every request is cheap. Unt
 DocType is migrated onto a site, the defaults below apply and the gateway keeps working.
 """
 
+import re
+
 import frappe
 from frappe import _
 
@@ -35,7 +37,11 @@ DEFAULTS = {
     "odata_include_doctypes": [],
     "odata_exclude_doctypes": [],
     "odata_functions": [],
+    "routes": {},
 }
+
+# Sub-paths the gateway itself owns under the base path; a clean route cannot take them.
+GATEWAY_OWNED_PATHS = ("/auth", "/api", "/odata", "/docs", "/openapi.json")
 
 
 INT_KEYS = ("access_token_ttl", "refresh_token_ttl", "odata_page_size", "odata_max_page_size")
@@ -70,6 +76,16 @@ def get(key: str):
             for r in value or []
             if r.function_name and r.method
         ]
+    if key == "routes":
+        routes = {}
+        for r in value or []:
+            path, error = normalise_route_path(r.path)
+            if not error and r.method:
+                verb = r.http_method or "GET"
+                routes.setdefault(path, {})[verb] = {
+                    "path": path, "method": r.method, "http_method": verb, "description": r.description or "",
+                }
+        return routes  # path -> {HTTP verb -> route}
     if key == "odata_apps":
         apps = [line.strip() for line in (value or "").splitlines() if line.strip()]
         return apps or None
@@ -90,6 +106,18 @@ def normalise_base_path(raw) -> tuple[str, str | None]:
         return path, _("Base Path cannot contain spaces, ?, # or %")
     if any(path == r or path.startswith(r + "/") for r in RESERVED_PREFIXES):
         return path, _("Base Path {0} collides with a Frappe route").format(path)
+    return path, None
+
+
+def normalise_route_path(raw) -> tuple[str, str | None]:
+    """``(path, error)`` for a clean route: ``/segment[/segment…]``, not owned by the gateway."""
+    path = "/" + str(raw or "").strip().strip("/")
+    if path == "/":
+        return path, _("Route Path cannot be empty")
+    if not re.fullmatch(r"(/[A-Za-z0-9._~-]+)+", path):
+        return path, _("Route Path {0} may only contain letters, digits, '.', '_', '~', '-' and '/'").format(path)
+    if any(path == p or path.startswith(p + "/") for p in GATEWAY_OWNED_PATHS):
+        return path, _("Route Path {0} collides with a gateway route").format(path)
     return path, None
 
 

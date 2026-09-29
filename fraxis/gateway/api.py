@@ -208,6 +208,17 @@ def odata_error():
 
 
 @frappe.whitelist(allow_guest=True, methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+def method_not_allowed():
+    """A clean route (Fraxis Settings > Routes) called with a verb it is not mapped to."""
+    allowed = getattr(frappe.local, "fraxis_allowed_methods", [])
+    return _json(
+        {"status": 405, "error": _("Method {0} is not allowed on this route").format(frappe.request.method)},
+        405,
+        {"Allow": ", ".join(allowed)},
+    )
+
+
+@frappe.whitelist(allow_guest=True, methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 def not_found():
     raise frappe.DoesNotExistError(_("Unknown Fraxis gateway path"))
 
