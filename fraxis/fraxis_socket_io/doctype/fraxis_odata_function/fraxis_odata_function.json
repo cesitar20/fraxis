@@ -1,0 +1,59 @@
+{
+ "actions": [],
+ "creation": "2026-09-29 14:30:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "istable": 1,
+ "field_order": [
+  "function_name",
+  "method",
+  "http_method",
+  "return_type"
+ ],
+ "fields": [
+  {
+   "fieldname": "function_name",
+   "fieldtype": "Data",
+   "label": "Function Name",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "OData identifier used in the URL and $metadata, e.g. GetLoggedUser"
+  },
+  {
+   "fieldname": "method",
+   "fieldtype": "Data",
+   "label": "Whitelisted Method",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Dotted path of a @frappe.whitelist() function, e.g. frappe.auth.get_logged_user"
+  },
+  {
+   "fieldname": "http_method",
+   "fieldtype": "Select",
+   "label": "HTTP Method",
+   "options": "GET\nPOST",
+   "default": "GET",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "return_type",
+   "fieldtype": "Select",
+   "label": "Return Type",
+   "default": "Edm.String",
+   "in_list_view": 1,
+   "options": "Edm.String\nEdm.Int32\nEdm.Int64\nEdm.Double\nEdm.Boolean\nEdm.DateTime",
+   "description": "Declared in $metadata; objects and lists are returned as JSON under \"d\"."
+  }
+ ],
+ "links": [],
+ "modified": "2026-09-29 14:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fraxis Socket IO",
+ "name": "Fraxis OData Function",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

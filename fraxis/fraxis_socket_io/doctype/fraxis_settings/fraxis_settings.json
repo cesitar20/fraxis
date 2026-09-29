@@ -1,0 +1,174 @@
+{
+ "actions": [],
+ "creation": "2026-09-29 13:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "gateway_section",
+  "disable_gateway",
+  "base_path",
+  "gateway_column",
+  "public_docs",
+  "tokens_section",
+  "access_token_ttl",
+  "refresh_token_ttl",
+  "tokens_column",
+  "jwt_secret",
+  "odata_section",
+  "odata_page_size",
+  "odata_max_page_size",
+  "odata_column",
+  "odata_apps",
+  "odata_doctypes_section",
+  "odata_include_doctypes",
+  "odata_exclude_doctypes",
+  "odata_v2_section",
+  "odata_functions"
+ ],
+ "fields": [
+  {
+   "fieldname": "gateway_section",
+   "fieldtype": "Section Break",
+   "label": "Gateway"
+  },
+  {
+   "fieldname": "disable_gateway",
+   "fieldtype": "Check",
+   "label": "Disable Gateway",
+   "default": "0",
+   "description": "On: every gateway route answers 404. Frappe's own /api is never affected."
+  },
+  {
+   "fieldname": "base_path",
+   "fieldtype": "Data",
+   "label": "Base Path",
+   "default": "/fraxis",
+   "reqd": 1,
+   "description": "URL prefix of every gateway route, e.g. /fraxis or /gw/v1. Frappe's own prefixes (/api, /app, /assets, /files, /private, /login\u2026) are not allowed."
+  },
+  {
+   "fieldname": "gateway_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "public_docs",
+   "fieldtype": "Check",
+   "label": "Public Docs",
+   "default": "0",
+   "description": "Let Guest read openapi.json and $metadata. Off: a desk session or a Bearer credential is required."
+  },
+  {
+   "fieldname": "tokens_section",
+   "fieldtype": "Section Break",
+   "label": "Tokens (JWT)"
+  },
+  {
+   "fieldname": "access_token_ttl",
+   "fieldtype": "Int",
+   "label": "Access Token TTL (seconds)",
+   "default": "900",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "refresh_token_ttl",
+   "fieldtype": "Int",
+   "label": "Refresh Token TTL (seconds)",
+   "default": "2592000",
+   "non_negative": 1,
+   "description": "Sliding: renewed on every rotation."
+  },
+  {
+   "fieldname": "tokens_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "jwt_secret",
+   "fieldtype": "Password",
+   "label": "JWT Signing Secret",
+   "length": 255,
+   "description": "Generated automatically. Changing it invalidates every access token already issued."
+  },
+  {
+   "fieldname": "odata_section",
+   "fieldtype": "Section Break",
+   "label": "OData"
+  },
+  {
+   "fieldname": "odata_page_size",
+   "fieldtype": "Int",
+   "label": "Default Page Size ($top)",
+   "default": "100",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "odata_max_page_size",
+   "fieldtype": "Int",
+   "label": "Max Page Size ($top)",
+   "default": "1000",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "odata_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "odata_apps",
+   "fieldtype": "Small Text",
+   "label": "Exposed Apps",
+   "description": "One app per line. Empty: every installed app except frappe."
+  },
+  {
+   "fieldname": "odata_doctypes_section",
+   "fieldtype": "Section Break",
+   "label": "Exposed DocTypes"
+  },
+  {
+   "fieldname": "odata_include_doctypes",
+   "fieldtype": "Table MultiSelect",
+   "label": "Also Expose",
+   "options": "Fraxis Gateway DocType",
+   "description": "Exposed in addition to the apps above (e.g. ToDo)."
+  },
+  {
+   "fieldname": "odata_exclude_doctypes",
+   "fieldtype": "Table MultiSelect",
+   "label": "Never Expose",
+   "options": "Fraxis Gateway DocType"
+  },
+  {
+   "fieldname": "odata_v2_section",
+   "fieldtype": "Section Break",
+   "label": "OData V2 Functions",
+   "description": "Whitelisted methods declared as FunctionImports in <base_path>/odata/v2/$metadata (needed by V2 clients such as SAP pyodata). V4 clients call any whitelisted method at <base_path>/odata/<dotted.method>."
+  },
+  {
+   "fieldname": "odata_functions",
+   "fieldtype": "Table",
+   "label": "Functions",
+   "options": "Fraxis OData Function"
+  }
+ ],
+ "links": [],
+ "modified": "2026-09-29 14:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fraxis Socket IO",
+ "name": "Fraxis Settings",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "issingle": 1,
+ "description": "Configuration of the Fraxis REST gateway (stored in the database, not in site_config).",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 0,
+   "print": 0,
+   "read": 1,
+   "role": "System Manager",
+   "share": 0,
+   "write": 1
+  }
+ ]
+}
