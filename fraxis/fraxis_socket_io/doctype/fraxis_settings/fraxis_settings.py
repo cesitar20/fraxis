@@ -32,6 +32,7 @@ class FraxisSettings(Document):
             self.jwt_secret = secrets.token_urlsafe(48)
 
         self.validate_odata_functions()
+        self.validate_routes()
 
     def validate_odata_functions(self):
         seen = set()
@@ -47,6 +48,29 @@ class FraxisSettings(Document):
                 frappe.throw(_("Row {0}: method {1} does not exist").format(row.idx, row.method))
             if fn not in frappe.whitelisted:
                 frappe.throw(_("Row {0}: {1} is not a @frappe.whitelist() method").format(row.idx, row.method))
+
+    def validate_routes(self):
+        seen = set()
+        for row in self.routes:
+            path, error = config.normalise_route_path(row.path)
+            if error:
+                frappe.throw(_("Route row {0}: {1}").format(row.idx, error))
+            row.path = path
+            key = (path, row.http_method or "GET")
+            if key in seen:
+                frappe.throw(_("Route row {0}: {1} {2} is defined twice").format(row.idx, key[1], path))
+            seen.add(key)
+            try:
+                fn = frappe.get_attr(row.method)
+            except Exception:
+                frappe.throw(_("Route row {0}: method {1} does not exist").format(row.idx, row.method))
+            if fn not in frappe.whitelisted:
+                frappe.throw(_("Route row {0}: {1} is not a @frappe.whitelist() method").format(row.idx, row.method))
+            allowed = frappe.allowed_http_methods_for_whitelisted_func.get(fn) or []
+            if allowed and (row.http_method or "GET") not in allowed:
+                frappe.throw(
+                    _("Route row {0}: {1} only accepts {2}").format(row.idx, row.method, ", ".join(allowed))
+                )
 
     def on_update(self):
         # Exposure set and generated OpenAPI documents depend on these settings.
