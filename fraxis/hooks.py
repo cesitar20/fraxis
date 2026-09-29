@@ -89,6 +89,9 @@ app_license = "mpl-2.0"
 
 # before_install = "fraxis.install.before_install"
 # after_install = "fraxis.install.after_install"
+# REST gateway: persist Fraxis Settings defaults and generate the JWT signing secret.
+after_install = "fraxis.gateway.config.ensure_settings"
+after_migrate = ["fraxis.gateway.config.ensure_settings"]
 
 # Uninstallation
 # ------------
@@ -151,11 +154,21 @@ doc_events = {
 		"after_insert": "fraxis.runtime.doc_event_bridge.on_after_insert",
 		"on_update": "fraxis.runtime.doc_event_bridge.on_update",
 		"on_trash": "fraxis.runtime.doc_event_bridge.on_trash",
-	}
+	},
+	# REST gateway: User is only observed (never customised); its gateway data lives in
+	# Fraxis User Profile. Password change / disable revokes tokens; delete drops the profile.
+	"User": {
+		"validate": "fraxis.gateway.user.invalidate_tokens_on_change",
+		"on_trash": "fraxis.gateway.user.delete_profile",
+	},
 }
 
 # Scheduled Tasks
 # ---------------
+
+scheduler_events = {
+	"daily": ["fraxis.gateway.tokens.purge_expired"],
+}
 
 # scheduler_events = {
 # 	"all": [
@@ -208,6 +221,11 @@ doc_events = {
 # before_request = ["fraxis.utils.before_request"]
 # after_request = ["fraxis.utils.after_request"]
 
+# REST gateway: /fraxis/... is rewritten onto /api/v2/... (Dendriva-style path resolver)
+# and OData responses are reshaped on the way out. Both are no-ops for other paths.
+before_request = ["fraxis.gateway.paths.route_request"]
+after_request = ["fraxis.gateway.odata.response.after_request"]
+
 # Job Events
 # ----------
 # Fraxis does NOT register a bench-global after_job hook. Job completion is reported via
@@ -245,6 +263,9 @@ doc_events = {
 # auth_hooks = [
 # 	"fraxis.auth.validate"
 # ]
+
+# REST gateway: Bearer api_key:api_secret (or Fraxis JWT) for /fraxis/... routes only.
+auth_hooks = ["fraxis.gateway.auth.validate_bearer"]
 
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True
