@@ -369,11 +369,33 @@ def _components() -> dict:
     }
 
 
+def _route_paths() -> dict:
+    """Clean routes from Fraxis Settings > Routes (their parameters are the method's own)."""
+    out: dict = {}
+    for path, verbs in config.get("routes").items():
+        item = {}
+        for verb, route in verbs.items():
+            item[verb.lower()] = {
+                "tags": ["Routes"],
+                "summary": route["description"].split("\n")[0][:120] if route["description"] else path,
+                "description": (route["description"] or "") + f"\n\nAnswered by `{route['method']}`.",
+                "operationId": f"route{path.replace('/', '_').replace('.', '_')}_{verb.lower()}",
+                "responses": {
+                    "200": {"description": "Method result", "content": {"application/json": {"schema": {"type": "object"}}}},
+                    "400": {"description": "Invalid parameters"},
+                    "401": {"$ref": "#/components/responses/Unauthorized"},
+                    "405": {"description": "HTTP method not mapped for this route"},
+                },
+            }
+        out[path] = item
+    return out
+
+
 def build(sets: dict[str, str], title_suffix: str = "") -> dict:
     components = _components()
     schemas = components["schemas"]
     paths: dict = {}
-    tags = [{"name": "Auth"}, {"name": "OData operations"}, {"name": "Frappe REST v2"}]
+    tags = [{"name": "Auth"}, {"name": "Routes"}, {"name": "OData operations"}, {"name": "Frappe REST v2"}]
     odata_paths: dict = {}
     for set_name, doctype in sets.items():
         entity = model.entity_type(doctype)
@@ -389,6 +411,7 @@ def build(sets: dict[str, str], title_suffix: str = "") -> dict:
         tags.append({"name": doctype, "description": entity.description or f"OData entity set `{set_name}`"})
 
     paths.update(_auth_paths())
+    paths.update(_route_paths())
     paths.update({f"/odata{path}": item for path, item in odata_paths.items()})
     return {
         "openapi": "3.0.3",
