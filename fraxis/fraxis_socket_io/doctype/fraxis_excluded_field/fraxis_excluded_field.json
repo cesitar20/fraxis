@@ -21,16 +21,16 @@
   {
    "columns": 5,
    "fieldname": "fieldname",
-   "fieldtype": "Data",
+   "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Field",
    "reqd": 1,
-   "description": "Fieldname (not the label), e.g. customer_data."
+   "description": "Fields the selected DocType can return (standard columns included). Owner and Modified By are never returned."
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-09-29 20:00:00.000000",
+ "modified": "2026-09-30 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fraxis Socket IO",
  "name": "Fraxis Excluded Field",
