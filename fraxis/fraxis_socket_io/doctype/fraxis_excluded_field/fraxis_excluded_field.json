@@ -6,11 +6,12 @@
  "engine": "InnoDB",
  "field_order": [
   "ref_doctype",
-  "fieldname"
+  "fieldnames",
+  "select_fields"
  ],
  "fields": [
   {
-   "columns": 5,
+   "columns": 3,
    "fieldname": "ref_doctype",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -20,17 +21,24 @@
   },
   {
    "columns": 5,
-   "fieldname": "fieldname",
-   "fieldtype": "Select",
+   "fieldname": "fieldnames",
+   "fieldtype": "Small Text",
    "in_list_view": 1,
-   "label": "Field",
+   "label": "Fields",
    "reqd": 1,
-   "description": "Fields the selected DocType can return (standard columns included). Owner and Modified By are never returned."
+   "description": "Comma-separated fieldnames, e.g. sender, assigned_by. Use Select Fields to pick them from what the DocType returns (Owner and Modified By are never returned)."
+  },
+  {
+   "columns": 2,
+   "fieldname": "select_fields",
+   "fieldtype": "Button",
+   "in_list_view": 1,
+   "label": "Select Fields"
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-09-30 12:00:00.000000",
+ "modified": "2026-09-30 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fraxis Socket IO",
  "name": "Fraxis Excluded Field",

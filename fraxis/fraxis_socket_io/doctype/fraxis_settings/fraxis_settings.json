@@ -10,6 +10,7 @@
   "base_path",
   "gateway_column",
   "public_docs",
+  "docs_languages",
   "auth_section",
   "access_token_ttl",
   "refresh_token_ttl",
@@ -27,6 +28,8 @@
   "never_expose",
   "excluded_section",
   "excluded_fields",
+  "field_mappings_section",
+  "field_mappings",
   "routes_section",
   "routes"
  ],
@@ -61,6 +64,13 @@
    "fieldtype": "Check",
    "label": "Public Docs",
    "description": "Let anyone open <base_path>/docs (Scalar) and <base_path>/openapi.json. Off: a desk session is required."
+  },
+  {
+   "default": "en\nes",
+   "fieldname": "docs_languages",
+   "fieldtype": "Small Text",
+   "label": "Docs Languages",
+   "description": "Language codes the API docs can be read in, one per line (the first is the default). Texts are translated with Frappe's translations, including the Translation DocType for route names."
   },
   {
    "fieldname": "auth_section",
@@ -169,6 +179,18 @@
    "options": "Fraxis Excluded Field"
   },
   {
+   "fieldname": "field_mappings_section",
+   "fieldtype": "Section Break",
+   "label": "Field Mappings",
+   "description": "Rename a field for clients (responses, filters, request bodies and the API docs) without renaming it in the DocType, and choose whether the docs show its description."
+  },
+  {
+   "fieldname": "field_mappings",
+   "fieldtype": "Table",
+   "label": "Field Mappings",
+   "options": "Fraxis Field Mapping"
+  },
+  {
    "fieldname": "routes_section",
    "fieldtype": "Section Break",
    "label": "Routes",
@@ -183,7 +205,7 @@
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-09-30 09:00:00.000000",
+ "modified": "2026-10-01 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fraxis Socket IO",
  "name": "Fraxis Settings",

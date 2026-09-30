@@ -1,0 +1,61 @@
+{
+ "actions": [],
+ "creation": "2026-10-01 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "ref_doctype",
+  "fieldname",
+  "public_name",
+  "show_description"
+ ],
+ "fields": [
+  {
+   "columns": 3,
+   "fieldname": "ref_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "DocType",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "columns": 3,
+   "fieldname": "fieldname",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Field",
+   "reqd": 1,
+   "description": "A field the DocType returns."
+  },
+  {
+   "columns": 3,
+   "fieldname": "public_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Public Name",
+   "description": "What clients see and send instead of the fieldname, e.g. assistant_name. Letters, digits and _. Empty: the fieldname."
+  },
+  {
+   "columns": 1,
+   "default": "1",
+   "fieldname": "show_description",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Show Description",
+   "description": "Show the field's description in the API docs. Fields without a row always show it."
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-01 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fraxis Socket IO",
+ "name": "Fraxis Field Mapping",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
