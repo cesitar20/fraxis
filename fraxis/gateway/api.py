@@ -188,12 +188,63 @@ _PAGE = """<!doctype html>
 </script>
 </head>
 <body style="margin:0">
+{translate_ui}
 {language_picker}
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1"></script>
 <script>Scalar.createApiReference("#app", {config_json})</script>
 </body>
 </html>"""
+
+# Scalar's own labels have no translations: the page swaps these exact texts for the translated
+# ones (Frappe's _(), fraxis/translations), leaving code blocks alone. Prefixes keep their tail.
+SCALAR_UI = (
+    "Authentication", "Auth Required", "Required", "required", "Bearer Token", "Body", "Responses", "Response",
+    "Request", "Test Request", "Show Schema", "Hide Schema", "Server", "Server:", "Client Libraries",
+    "Download OpenAPI Document", "Operations", "Query Parameters", "Path Parameters", "Headers", "Copy",
+    "Copy as Markdown", "Search", "Models", "Introduction", "Show Password", "Clear Value", "Open Search",
+    "Open Menu", "Status:", "Type:", "Format:", "Selected Content Type:", "More", "Show More", "Show Less",
+    "Select from all clients", "Keyboard Shortcut:", "Credentials", "Example", "Examples", "Default", "Send",
+    "Close", "Cancel", "Value", "Key",
+)
+SCALAR_UI_PREFIXES = ("Selected Auth Type: ", "Close Group - ", "Open Group - ", "Copy link to ", "Request Example for ")
+
+_TRANSLATE_UI = """<script>
+(function () {{
+  const UI = {ui_json}, PREFIXES = {prefixes_json};
+  if (!Object.keys(UI).length && !Object.keys(PREFIXES).length) return;
+  // Only a label that is the whole text of its element: "Request" inside "TokenRequest" stays.
+  const skip = (node, key) => !node.parentElement || node.parentElement.closest("pre, code, textarea, script, style")
+    || node.parentElement.textContent.trim() !== key;
+  function translate(node) {{
+    const text = node.nodeValue, key = text.trim();
+    if (!key || skip(node, key)) return;
+    let out = UI[key];
+    if (!out) for (const prefix in PREFIXES) if (key.startsWith(prefix)) {{ out = PREFIXES[prefix] + key.slice(prefix.length); break; }}
+    if (out && out !== key) node.nodeValue = text.replace(key, out);
+  }}
+  function walk(root) {{
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) translate(node);
+  }}
+  new MutationObserver((mutations) => {{
+    for (const m of mutations) {{
+      if (m.type === "characterData") translate(m.target);
+      else m.addedNodes.forEach((n) => (n.nodeType === 3 ? translate(n) : n.nodeType === 1 && walk(n)));
+    }}
+  }}).observe(document.documentElement, {{ childList: true, subtree: true, characterData: true }});
+}})();
+</script>"""
+
+
+def _ui_translations() -> str:
+    """The Scalar label translator for the current language, or nothing when none is translated."""
+    ui = {text: _(text) for text in SCALAR_UI if _(text) != text}
+    prefixes = {p: _(p.strip()) + p[len(p.rstrip()):] for p in SCALAR_UI_PREFIXES if _(p.strip()) != p.strip()}
+    if not ui and not prefixes:
+        return ""
+    return _TRANSLATE_UI.format(ui_json=_json_for_script(ui), prefixes_json=_json_for_script(prefixes))
+
 
 # Hidden from the page: the button that opens Scalar's hosted client and the "Powered by" link.
 SCALAR_CSS = ".open-api-client-button, a[href*='utm_source=powered-by'] { display: none !important; }"
@@ -242,8 +293,8 @@ def docs(lang: str | None = None):
         "customCss": SCALAR_CSS,
         # Generated requests show "Authorization: Bearer <access_token>", as the guide does.
         "authentication": {
-            "preferredSecurityScheme": "bearerAuth",
-            "securitySchemes": {"bearerAuth": {"token": "<access_token>"}},
+            "preferredSecurityScheme": openapi.SECURITY_SCHEME,
+            "securitySchemes": {openapi.SECURITY_SCHEME: {"token": "<access_token>"}},
         },
         "hiddenClients": SCALAR_HIDDEN_CLIENTS,
     }
@@ -254,6 +305,7 @@ def docs(lang: str | None = None):
             title=escape_html(_(openapi.DOCS_TITLE)),
             base_json=_json_for_script(router.gateway_path()),
             language_picker=_language_picker(lang),
+            translate_ui=_ui_translations(),
             config_json=_json_for_script(scalar_config),
         )
     finally:
