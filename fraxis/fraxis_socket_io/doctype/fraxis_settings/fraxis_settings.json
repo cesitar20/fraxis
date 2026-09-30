@@ -1,0 +1,206 @@
+{
+ "actions": [],
+ "creation": "2026-09-29 20:00:00.000000",
+ "description": "Configuration of the Fraxis REST gateway (stored in the database, not in site_config).",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "gateway_section",
+  "disable_gateway",
+  "base_path",
+  "gateway_column",
+  "public_docs",
+  "auth_section",
+  "access_token_ttl",
+  "refresh_token_ttl",
+  "auth_column",
+  "jwt_secret",
+  "paging_section",
+  "page_size",
+  "paging_column",
+  "max_page_size",
+  "exposure_section",
+  "only_expose",
+  "exposed_apps",
+  "exposure_column",
+  "also_expose",
+  "never_expose",
+  "excluded_section",
+  "excluded_fields",
+  "routes_section",
+  "routes"
+ ],
+ "fields": [
+  {
+   "fieldname": "gateway_section",
+   "fieldtype": "Section Break",
+   "label": "Gateway"
+  },
+  {
+   "default": "0",
+   "fieldname": "disable_gateway",
+   "fieldtype": "Check",
+   "label": "Disable Gateway",
+   "description": "On: every gateway path falls through to Frappe (404). Frappe's own /api is never affected."
+  },
+  {
+   "default": "/fraxis",
+   "fieldname": "base_path",
+   "fieldtype": "Data",
+   "label": "Base Path",
+   "reqd": 1,
+   "description": "URL prefix of every gateway route, e.g. /fraxis or /gw. Frappe's own prefixes (/api, /app, /assets, /files, /private, /login…) are not allowed."
+  },
+  {
+   "fieldname": "gateway_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "public_docs",
+   "fieldtype": "Check",
+   "label": "Public Docs",
+   "description": "Let anyone open <base_path>/docs (Scalar) and <base_path>/openapi.json. Off: a desk session is required."
+  },
+  {
+   "fieldname": "auth_section",
+   "fieldtype": "Section Break",
+   "label": "Authentication",
+   "description": "POST <base_path>/auth/token with the user's API Key and API Secret returns an access token and a refresh token; <base_path>/auth/refresh renews them and <base_path>/auth/revoke ends the session. Every other route only accepts Authorization: Bearer <access_token>."
+  },
+  {
+   "default": "900",
+   "fieldname": "access_token_ttl",
+   "fieldtype": "Int",
+   "label": "Access Token TTL (seconds)",
+   "non_negative": 1
+  },
+  {
+   "default": "2592000",
+   "fieldname": "refresh_token_ttl",
+   "fieldtype": "Int",
+   "label": "Refresh Token TTL (seconds)",
+   "non_negative": 1,
+   "description": "Sliding: every refresh returns a new refresh token with this lifetime and invalidates the old one."
+  },
+  {
+   "fieldname": "auth_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "jwt_secret",
+   "fieldtype": "Password",
+   "label": "Token Signing Secret",
+   "length": 255,
+   "description": "Generated automatically. Changing it invalidates every access token already issued."
+  },
+  {
+   "fieldname": "paging_section",
+   "fieldtype": "Section Break",
+   "label": "Pagination"
+  },
+  {
+   "default": "100",
+   "fieldname": "page_size",
+   "fieldtype": "Int",
+   "label": "Default Page Size ($top)",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "paging_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1000",
+   "fieldname": "max_page_size",
+   "fieldtype": "Int",
+   "label": "Max Page Size ($top)",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "exposure_section",
+   "fieldtype": "Section Break",
+   "label": "Exposed DocTypes",
+   "description": "Only routes whose DocType is exposed are served and listed in the API docs."
+  },
+  {
+   "fieldname": "only_expose",
+   "fieldtype": "Table MultiSelect",
+   "label": "Only Expose",
+   "options": "Fraxis Gateway DocType",
+   "description": "When set, exactly these DocTypes are exposed and the other exposure fields are disabled (they are cleared on save). Remove every row to use them again."
+  },
+  {
+   "fieldname": "exposed_apps",
+   "fieldtype": "Small Text",
+   "label": "Exposed Apps",
+   "read_only_depends_on": "eval:(doc.only_expose || []).length > 0",
+   "description": "One app per line. Empty: every installed app except frappe."
+  },
+  {
+   "fieldname": "exposure_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "also_expose",
+   "fieldtype": "Table MultiSelect",
+   "label": "Also Expose",
+   "options": "Fraxis Gateway DocType",
+   "read_only_depends_on": "eval:(doc.only_expose || []).length > 0",
+   "description": "Exposed in addition to the apps above (e.g. ToDo)."
+  },
+  {
+   "fieldname": "never_expose",
+   "fieldtype": "Table MultiSelect",
+   "label": "Never Expose",
+   "options": "Fraxis Gateway DocType",
+   "read_only_depends_on": "eval:(doc.only_expose || []).length > 0"
+  },
+  {
+   "fieldname": "excluded_section",
+   "fieldtype": "Section Break",
+   "label": "Excluded Fields",
+   "description": "Fields the gateway never returns, filters, sorts or writes. Password fields are always excluded."
+  },
+  {
+   "fieldname": "excluded_fields",
+   "fieldtype": "Table",
+   "label": "Excluded Fields",
+   "options": "Fraxis Excluded Field"
+  },
+  {
+   "fieldname": "routes_section",
+   "fieldtype": "Section Break",
+   "label": "Routes",
+   "description": "<base_path>/<sub_route>/<sub_category> answered by Frappe's own document API on the DocType, with OData query options ($filter, $select, $orderby, $top, $skip, $count)."
+  },
+  {
+   "fieldname": "routes",
+   "fieldtype": "Table",
+   "label": "Routes",
+   "options": "Fraxis Route"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-30 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fraxis Socket IO",
+ "name": "Fraxis Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 0,
+   "print": 0,
+   "read": 1,
+   "role": "System Manager",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

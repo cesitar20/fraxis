@@ -1,0 +1,62 @@
+{
+ "actions": [],
+ "creation": "2026-09-29 20:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "ref_doctype",
+  "fieldname",
+  "fieldtype",
+  "value"
+ ],
+ "fields": [
+  {
+   "columns": 3,
+   "fieldname": "ref_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "DocType",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "columns": 3,
+   "fieldname": "fieldname",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Field",
+   "reqd": 1,
+   "description": "Fieldname of the DocType, e.g. organization_id."
+  },
+  {
+   "columns": 1,
+   "default": "Data",
+   "fieldname": "fieldtype",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Data\nInt\nFloat\nCheck",
+   "reqd": 1
+  },
+  {
+   "columns": 3,
+   "fieldname": "value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Value",
+   "reqd": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-29 20:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fraxis Socket IO",
+ "name": "Fraxis Profile Param",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

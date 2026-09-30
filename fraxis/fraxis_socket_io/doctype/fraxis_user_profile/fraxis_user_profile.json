@@ -1,0 +1,84 @@
+{
+ "actions": [],
+ "autoname": "field:user",
+ "creation": "2026-09-29 20:00:00.000000",
+ "description": "Gateway access of one User. The User's own roles and permissions still decide what each request may read or write.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "full_name",
+  "column_break_main",
+  "api_enabled",
+  "extra_params_section",
+  "extra_params"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "User",
+   "options": "User",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fetch_from": "user.full_name",
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Full Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "api_enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "API Enabled",
+   "description": "Lets the user exchange its API Key / API Secret (User > API Access) for a gateway access token."
+  },
+  {
+   "fieldname": "extra_params_section",
+   "fieldtype": "Section Break",
+   "label": "Extra Params",
+   "description": "Applied to every request against the DocType: lists are filtered by it, a document outside it answers 404, new documents get it and updates cannot move a document out of it. Several rows with the same DocType and Field allow any of their values."
+  },
+  {
+   "fieldname": "extra_params",
+   "fieldtype": "Table",
+   "label": "Extra Params",
+   "options": "Fraxis Profile Param"
+  }
+ ],
+ "links": [],
+ "modified": "2026-09-29 20:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fraxis Socket IO",
+ "name": "Fraxis User Profile",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 0,
+   "export": 1,
+   "print": 0,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "full_name"
+}

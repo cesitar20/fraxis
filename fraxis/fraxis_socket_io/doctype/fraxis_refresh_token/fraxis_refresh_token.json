@@ -1,0 +1,150 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-09-30 09:00:00.000000",
+ "description": "Refresh tokens of the Fraxis gateway. Only a SHA-256 of each token is stored; rows are written by fraxis.gateway.tokens.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "status",
+  "family",
+  "grant_type",
+  "column_break_main",
+  "expires_at",
+  "last_used_at",
+  "replaced_by",
+  "revoked_reason",
+  "client_section",
+  "ip_address",
+  "user_agent",
+  "column_break_client",
+  "token_hash",
+  "key_fingerprint"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "User",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Active\nRotated\nRevoked\nExpired",
+   "read_only": 1
+  },
+  {
+   "fieldname": "family",
+   "fieldtype": "Data",
+   "label": "Family",
+   "read_only": 1,
+   "search_index": 1,
+   "description": "Every token obtained by refreshing the same login shares its family."
+  },
+  {
+   "fieldname": "grant_type",
+   "fieldtype": "Data",
+   "label": "Grant Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "expires_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Expires At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_used_at",
+   "fieldtype": "Datetime",
+   "label": "Last Used At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "replaced_by",
+   "fieldtype": "Link",
+   "label": "Replaced By",
+   "options": "Fraxis Refresh Token",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revoked_reason",
+   "fieldtype": "Data",
+   "label": "Revoked Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "client_section",
+   "fieldtype": "Section Break",
+   "label": "Client"
+  },
+  {
+   "fieldname": "ip_address",
+   "fieldtype": "Data",
+   "label": "IP Address",
+   "read_only": 1
+  },
+  {
+   "fieldname": "user_agent",
+   "fieldtype": "Small Text",
+   "label": "User Agent",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_client",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "token_hash",
+   "fieldtype": "Data",
+   "label": "Token Hash",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "key_fingerprint",
+   "fieldtype": "Data",
+   "label": "Key Fingerprint",
+   "read_only": 1,
+   "description": "Fingerprint of the API key pair the login used; refreshing fails once the keys are regenerated."
+  }
+ ],
+ "in_create": 1,
+ "links": [],
+ "modified": "2026-09-30 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fraxis Socket IO",
+ "name": "Fraxis Refresh Token",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "delete": 1,
+   "email": 0,
+   "export": 1,
+   "print": 0,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
