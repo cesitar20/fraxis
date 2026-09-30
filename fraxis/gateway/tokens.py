@@ -24,7 +24,7 @@ from frappe.utils import add_to_date, now_datetime
 from fraxis.gateway import config
 
 DOCTYPE = "Fraxis Refresh Token"
-PREFIX = "fxr1."
+PREFIX = "rt1."  # shown to clients: never the platform's name
 # Outside config.CACHE_PREFIX: saving Fraxis Settings clears that prefix and must not forget revocations.
 DENY_PREFIX = "fraxis_revoked:"
 

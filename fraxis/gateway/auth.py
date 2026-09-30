@@ -37,7 +37,7 @@ from frappe.utils.password import get_decrypted_password
 from fraxis.gateway import config, router, tokens
 
 ALGORITHM = "HS256"
-AUDIENCE = "fraxis"
+AUDIENCE = "api"  # readable by anyone who decodes the token: never the platform's name
 PROFILE = "Fraxis User Profile"
 
 
@@ -81,7 +81,7 @@ def assert_allowed(user: str) -> None:
         raise AuthError(_("User is disabled"))
     if not frappe.db.get_value(PROFILE, user, "api_enabled"):
         raise AuthError(
-            _("Gateway access is not enabled for this user (Fraxis User Profile > API Enabled)"),
+            _("API access is not enabled for this account"),
             code="unauthorized_client",
             status=403,
         )
@@ -102,7 +102,8 @@ def _issue_pair(user: str, key_fingerprint: str, grant_type: str, family: str | 
     """Access + refresh token response (RFC 6749 §5.1) and the name of the new refresh row."""
     secret = config.jwt_secret()
     if not secret:
-        raise AuthError(_("Fraxis Settings has no signing secret yet: run bench migrate"), "server_error", 503)
+        frappe.log_error(title="Fraxis Settings has no token signing secret yet: run bench migrate")
+        raise AuthError(_("Service temporarily unavailable"), "server_error", 503)
     family = family or uuid.uuid4().hex
     ttl = config.get_int("access_token_ttl")
     now = int(time.time())

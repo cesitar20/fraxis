@@ -47,7 +47,7 @@ def dispatch():
             error.status,
             "Unauthorized" if error.status == 401 else "Forbidden",
             str(error),
-            {"WWW-Authenticate": 'Bearer realm="fraxis", error="invalid_token"'} if error.status == 401 else None,
+            {"WWW-Authenticate": 'Bearer realm="api", error="invalid_token"'} if error.status == 401 else None,
         )
 
     try:
