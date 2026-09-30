@@ -18,6 +18,7 @@ OpenAPI 3.0 document rendered by Scalar at ``<base_path>/docs``.
   requests, which then filter or select what the caller did not ask for.
 """
 
+import json
 import re
 
 import frappe
@@ -94,6 +95,8 @@ def _example(p: model.Prop):
     """The field's Example (Field Mappings), typed like the field, else one based on its type."""
     if p.example:
         try:
+            if p.fieldtype == "JSON":
+                return json.loads(p.example)
             if p.fieldtype == "Check":
                 return p.example.strip().lower() in ("1", "true", "yes")
             if p.fieldtype in INT_TYPES:

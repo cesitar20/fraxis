@@ -39,7 +39,7 @@ class Prop:
     read_only: bool = False  # standard columns; the DocType's own fields stay writable as in Frappe's API
     public: str = ""  # name clients see and send (Fraxis Settings > Field Mappings); the fieldname by default
     description: str = ""  # the field's description, when the docs show it
-    example: str = ""  # Field Mappings > Example; the docs fall back to one based on the fieldtype
+    example: str = ""  # Field Mappings > Example, else the field's Placeholder; the docs fall back to the fieldtype
     lookup: tuple[str, str, str] | None = None  # Field Mappings > Lookup (see fraxis.gateway.lookup)
     lookup_restrict: bool = True  # Field Mappings > Restrict Rows
 
@@ -98,7 +98,7 @@ def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tup
         if key not in excluded:
             props[key] = Prop(
                 key, fieldtype, STANDARD_LABELS[key], required=key == "name", read_only=True, public=public(key),
-                example=example(key),
+                example=example(key) or (_name_example(meta) if key == "name" else ""),
             )
     for df in meta.fields:
         if df.fieldname in excluded:
@@ -114,11 +114,32 @@ def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tup
                 options=df.options if df.fieldtype in ("Select", "Data") else None,  # choices / Email, Phone, URL
                 public=public(df.fieldname),
                 description=description(df.fieldname, df.description),
-                example=example(df.fieldname),
+                # The field's Placeholder (DocType or Customize Form) doubles as its example.
+                example=example(df.fieldname) or (df.get("placeholder") or "").strip(),
                 lookup=lookup(df.fieldname),
                 lookup_restrict=lookup_restrict(df.fieldname),
             )
     return props, collections
+
+
+def _name_example(meta) -> str:
+    """An ID in the DocType's own numbering: ``AI-ASSISTANT-.#########`` -> ``AI-ASSISTANT-000000001``,
+    ``field:user`` -> that field's placeholder, a random name -> a short hash."""
+    autoname = (meta.autoname or "").strip()
+    if autoname == "hash":  # even when an unused naming_series field exists
+        return "a1b2c3d4e5"
+    if autoname.startswith("field:"):
+        df = meta.get_field(autoname[len("field:"):].strip())
+        return (df.get("placeholder") or "") if df else ""
+    series = autoname[len("naming_series:"):] if autoname.startswith("naming_series:") else ""
+    if not series and meta.get_field("naming_series"):
+        series = next((o for o in (meta.get_field("naming_series").options or "").split("\n") if o), "")
+    elif not series and ".#" in autoname:
+        series = autoname
+    if ".#" in series:
+        prefix, _dot, hashes = series.rpartition(".")
+        return f"{prefix}{'1'.rjust(len(hashes), '0')}" if set(hashes) == {"#"} else ""
+    return "a1b2c3d4e5" if not autoname else ""
 
 
 def entity(doctype: str) -> Entity:
