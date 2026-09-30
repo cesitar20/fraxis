@@ -218,12 +218,21 @@ def _odata_parameters(entity: model.Entity) -> list[dict]:
 
 
 def _tag(spec: config.RouteSpec) -> str:
-    """Tag of a route: unique per path (``stats/records``), shown as its Sub Category."""
-    return f"{spec.sub_route}/{spec.sub_category}"
+    """Tag of a route, unique per Sub Route + Sub Category. Scalar shows its x-displayName inside
+    the Sub Route folder; importers (Postman, Bruno) name their folder after the tag itself, so it
+    reads as "Stats - Records" rather than an identifier."""
+    return f"{_(spec.sub_route.capitalize())} - {_(spec.sub_category.capitalize())}"
+
+
+def _auth_tag() -> str:
+    return _("Access tokens")
 
 
 def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tuple[dict, dict]:
     tag = [_tag(spec)]
+    # Declared on every operation, not only at the root: importers then give each request its own
+    # Bearer auth ({{token}} in Bruno) instead of "inherited from collection", ready to fill in.
+    security = [{SECURITY_SCHEME: []}]
     public_name = _(spec.public_name)
     op_id = re.sub(r"[^A-Za-z0-9_]", "_", "_".join(spec.segments))
     one = {"description": _("Record"), "headers": {"ETag": {"schema": {"type": "string"}}},
@@ -242,7 +251,7 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
     collection, item = {}, {}
     if "GET" in spec.verbs:
         collection["get"] = {
-            "tags": tag, "operationId": f"{op_id}_list", **summary("GET", "list_name"),
+            "tags": tag, "operationId": f"{op_id}_list", "security": security, **summary("GET", "list_name"),
             "parameters": _filter_parameters(entity) + _odata_parameters(entity),
             "responses": {
                 "200": {"description": _("Page of records"), "content": {"application/json": {"schema": {
@@ -258,21 +267,21 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
             },
         }
         item["get"] = {
-            "tags": tag, "operationId": f"{op_id}_get", **summary("GET", "get_name"),
+            "tags": tag, "operationId": f"{op_id}_get", "security": security, **summary("GET", "get_name"),
             "parameters": [{"name": "$select", "in": "query", "schema": {"type": "string"},
                             "description": _("Properties to return, separated by commas (child tables allowed)")}],
             "responses": {"200": one, **_errors("400", "401", "403", "404")},
         }
     if "POST" in spec.verbs:
         collection["post"] = {
-            "tags": tag, "operationId": f"{op_id}_create", **summary("POST", "create_name"),
+            "tags": tag, "operationId": f"{op_id}_create", "security": security, **summary("POST", "create_name"),
             "requestBody": body,
             "responses": {"201": {**one, "description": _("Created; `Location` has its URL")},
                           **_errors("400", "401", "403", "409")},
         }
     if "PATCH" in spec.verbs:
         item["patch"] = {
-            "tags": tag, "operationId": f"{op_id}_update", **summary("PATCH", "update_name"),
+            "tags": tag, "operationId": f"{op_id}_update", "security": security, **summary("PATCH", "update_name"),
             "parameters": [if_match],
             "requestBody": {**body, "content": {"application/json": {"schema": {
                 **_ref(f"{schema}Input"), "description": _("Only the properties to change")}}}},
@@ -280,7 +289,7 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
         }
     if "DELETE" in spec.verbs:
         item["delete"] = {
-            "tags": tag, "operationId": f"{op_id}_delete", **summary("DELETE", "delete_name"),
+            "tags": tag, "operationId": f"{op_id}_delete", "security": security, **summary("DELETE", "delete_name"),
             "parameters": [if_match],
             "responses": {"204": {"description": _("Deleted")}, **_errors("401", "403", "404", "412")},
         }
@@ -291,7 +300,6 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
 
 # --- authentication -------------------------------------------------------------------------
 
-AUTH_TAG = "auth"
 SECURITY_SCHEME = "Bearer"  # shown by Scalar as the auth type
 KEY_EXAMPLE = {"api_key": "a1b2c3d4e5f6g7h", "api_secret": "9z8y7x6w5v4u3t2"}
 REFRESH_EXAMPLE = "rt1.Q2hhbmdlIG1lIC0gZXhhbXBsZSByZWZyZXNoIHRva2Vu..."
@@ -315,14 +323,16 @@ def _tokens_ok(description: str) -> dict:
 
 def _auth_paths() -> dict:
     token = {"post": {
-        "tags": [AUTH_TAG],
+        "tags": [_auth_tag()],
         "operationId": "auth_token",
         "summary": _("Get an access token"),
+        # "<access_token>" goes in through {0}: Frappe's _() strips anything that looks like an HTML tag
+        # before looking the text up, so a literal one would never match its translation.
         "description": _("Send the API Key and API Secret provided to you. Every other route only accepts the returned "
-                         "`access_token` as `Authorization: Bearer <access_token>`. Keep the `refresh_token` to renew it "
+                         "`access_token` as `Authorization: Bearer {0}`. Keep the `refresh_token` to renew it "
                          "with **Refresh the access token**. Also accepted as OAuth2 client credentials "
                          "(`grant_type=client_credentials` with `client_id` / `client_secret`, in the form body or as HTTP "
-                         "Basic) and `grant_type=refresh_token`."),
+                         "Basic) and `grant_type=refresh_token`.").format("<access_token>"),
         "security": [],
         "requestBody": {"required": True, "content": {
             "application/json": {"schema": _ref("TokenRequest"), "example": KEY_EXAMPLE},
@@ -341,7 +351,7 @@ def _auth_paths() -> dict:
         },
     }}
     refresh = {"post": {
-        "tags": [AUTH_TAG],
+        "tags": [_auth_tag()],
         "operationId": "auth_refresh",
         "summary": _("Refresh the access token"),
         "description": _("Exchange the `refresh_token` for a new access token **and a new refresh token**; the one sent "
@@ -357,7 +367,7 @@ def _auth_paths() -> dict:
         },
     }}
     revoke = {"post": {
-        "tags": [AUTH_TAG],
+        "tags": [_auth_tag()],
         "operationId": "auth_revoke",
         "summary": _("Revoke (log out)"),
         "description": _("Ends the session of a refresh token or an access token: the refresh token and every access "
@@ -407,6 +417,10 @@ def _description(example_path: str | None) -> str:
         _("To try the routes from this page, run **Get an access token** with *Test Request*, copy the `access_token` "
           "and paste it in **Authentication**, *Bearer Token*: the request examples and the downloaded document then use "
           "it as Bearer authentication."),
+        # "{{token}}" goes in through {0}: _() would read its braces as a format field.
+        _("**Postman or Bruno**: import the document from *Download OpenAPI Document*. Every request comes with Bearer "
+          "authentication set to {0}: define a `token` variable in the environment with your access token and every "
+          "request uses it.").format("`{{token}}`"),
         "## " + _("Filters"),
         _("Lists are filtered with one query parameter per field: `?status=Active`, several values separated by commas "
           "(`?status=Active,Paused`), and `_from` / `_to` on dates (`?creation_from=2026-09-01&creation_to=2026-09-30`). "
@@ -472,10 +486,10 @@ def build() -> dict:
     )
     schemas: dict = {}
     paths: dict = _auth_paths()
-    tags = [{"name": AUTH_TAG, "x-displayName": _("Access tokens"),
+    tags = [{"name": _auth_tag(), "x-displayName": _("Access tokens"),
              "description": _("Get, refresh and revoke the tokens every route needs.")}]
     # Folders in Scalar: one group per Sub Route, one tag (sub-folder) per Sub Category.
-    groups: dict[str, list[str]] = {_("Authentication"): [AUTH_TAG]}
+    groups: dict[str, list[str]] = {_("Authentication"): [_auth_tag()]}
 
     for spec in specs:
         entity = model.entity(spec.doctype)

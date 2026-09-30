@@ -28,7 +28,7 @@ Created; `Location` has its URL,Creado; `Location` tiene su URL
 Only the properties to change,Solo las propiedades a cambiar
 Deleted,Eliminado
 Get an access token,Obtener un token de acceso
-"Send the API Key and API Secret provided to you. Every other route only accepts the returned `access_token` as `Authorization: Bearer <access_token>`. Keep the `refresh_token` to renew it with **Refresh the access token**. Also accepted as OAuth2 client credentials (`grant_type=client_credentials` with `client_id` / `client_secret`, in the form body or as HTTP Basic) and `grant_type=refresh_token`.","Envía la API Key y la API Secret que se te entregaron. Todas las demás rutas solo aceptan el `access_token` devuelto como `Authorization: Bearer <access_token>`. Guarda el `refresh_token` para renovarlo con **Renovar el token de acceso**. También se acepta como credenciales de cliente OAuth2 (`grant_type=client_credentials` con `client_id` / `client_secret`, en el cuerpo del formulario o como HTTP Basic) y `grant_type=refresh_token`."
+"Send the API Key and API Secret provided to you. Every other route only accepts the returned `access_token` as `Authorization: Bearer {0}`. Keep the `refresh_token` to renew it with **Refresh the access token**. Also accepted as OAuth2 client credentials (`grant_type=client_credentials` with `client_id` / `client_secret`, in the form body or as HTTP Basic) and `grant_type=refresh_token`.","Envía la API Key y la API Secret que se te entregaron. Todas las demás rutas solo aceptan el `access_token` devuelto como `Authorization: Bearer {0}`. Guarda el `refresh_token` para renovarlo con **Renovar el token de acceso**. También se acepta como credenciales de cliente OAuth2 (`grant_type=client_credentials` con `client_id` / `client_secret`, en el cuerpo del formulario o como HTTP Basic) y `grant_type=refresh_token`."
 Access and refresh token,Token de acceso y de renovación
 Too many token requests (30 per minute),Demasiadas solicitudes de token (30 por minuto)
 Refresh the access token,Renovar el token de acceso
@@ -134,3 +134,4 @@ Close Group -,Cerrar grupo -
 Open Group -,Abrir grupo -
 Copy link to,Copiar enlace a
 Request Example for,Ejemplo de petición para
+**Postman or Bruno**: import the document from *Download OpenAPI Document*. Every request comes with Bearer authentication set to {0}: define a `token` variable in the environment with your access token and every request uses it.,**Postman o Bruno**: importa el documento desde *Descargar documento OpenAPI*. Cada petición viene con autenticación Bearer en {0}: define una variable `token` en el entorno con tu token de acceso y todas las peticiones la usan.
