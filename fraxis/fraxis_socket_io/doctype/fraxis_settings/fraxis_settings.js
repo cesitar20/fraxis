@@ -42,40 +42,80 @@ function fraxis_set_names(frm, cdt, cdn) {
 	});
 }
 
-// Excluded Fields > Field lists what the row's DocType can return (server: model.publishable_fields).
+// Excluded Fields: one row per DocType; Select Fields picks from what it can return
+// (server: model.publishable_fields) and stores them comma-separated.
 const fraxis_fields_cache = {};
 
-function fraxis_doctype_fields(doctype) {
-	if (!fraxis_fields_cache[doctype]) {
-		fraxis_fields_cache[doctype] = frappe
-			.xcall("fraxis.fraxis_socket_io.doctype.fraxis_settings.fraxis_settings.get_doctype_fields", {
-				doctype,
-			})
-			.then((fields) =>
-				fields.map((f) => ({ value: f.fieldname, label: `${__(f.label)} (${f.fieldname})` }))
-			);
+function fraxis_doctype_fields(doctype, include_name = false) {
+	const key = `${doctype}|${include_name ? 1 : 0}`;
+	if (!fraxis_fields_cache[key]) {
+		fraxis_fields_cache[key] = frappe.xcall(
+			"fraxis.fraxis_socket_io.doctype.fraxis_settings.fraxis_settings.get_doctype_fields",
+			{ doctype, include_name: include_name ? 1 : 0 }
+		);
 	}
-	return fraxis_fields_cache[doctype];
+	return fraxis_fields_cache[key];
 }
 
-function fraxis_set_field_options(frm, cdn) {
-	const row = locals["Fraxis Excluded Field"][cdn];
-	const docfield = frappe.meta.get_docfield("Fraxis Excluded Field", "fieldname", cdn);
+function fraxis_split_fields(value) {
+	return [...new Set((value || "").split(/[,\n]/).map((f) => f.trim()).filter(Boolean))];
+}
+
+function fraxis_select_fields(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+	if (!row.ref_doctype) {
+		frappe.msgprint(__("Select the DocType first"));
+		return;
+	}
+	fraxis_doctype_fields(row.ref_doctype).then((fields) => {
+		const selected = fraxis_split_fields(row.fieldnames);
+		const dialog = new frappe.ui.Dialog({
+			title: __("Fields of {0} to exclude", [row.ref_doctype]),
+			size: "large",
+			fields: [
+				{
+					fieldtype: "MultiCheck",
+					fieldname: "fields",
+					columns: 2,
+					options: fields.map((f) => ({
+						label: `${__(f.label)} (${f.fieldname})`,
+						value: f.fieldname,
+						checked: selected.includes(f.fieldname),
+					})),
+				},
+			],
+			primary_action_label: __("Set"),
+			primary_action(values) {
+				frappe.model.set_value(cdt, cdn, "fieldnames", (values.fields || []).join(", "));
+				dialog.hide();
+			},
+		});
+		dialog.show();
+	});
+}
+
+// Field Mappings > Field: a Select whose options are the row DocType's fields, ID included.
+function fraxis_set_mapping_options(frm, cdn) {
+	const row = locals["Fraxis Field Mapping"][cdn];
+	const docfield = frappe.meta.get_docfield("Fraxis Field Mapping", "fieldname", cdn);
 	if (!row || !docfield) return;
 	if (!row.ref_doctype) {
 		docfield.options = [];
 		return;
 	}
-	fraxis_doctype_fields(row.ref_doctype).then((options) => {
-		docfield.options = [{ value: "", label: "" }, ...options];
-		const grid_row = frm.fields_dict.excluded_fields.grid.get_row(cdn);
+	fraxis_doctype_fields(row.ref_doctype, true).then((fields) => {
+		docfield.options = [
+			{ value: "", label: "" },
+			...fields.map((f) => ({ value: f.fieldname, label: `${__(f.label)} (${f.fieldname})` })),
+		];
+		const grid_row = frm.fields_dict.field_mappings.grid.get_row(cdn);
 		if (grid_row) grid_row.refresh_field("fieldname");
 	});
 }
 
 frappe.ui.form.on("Fraxis Settings", {
 	refresh(frm) {
-		(frm.doc.excluded_fields || []).forEach((row) => fraxis_set_field_options(frm, row.name));
+		(frm.doc.field_mappings || []).forEach((row) => fraxis_set_mapping_options(frm, row.name));
 		(frm.doc.routes || []).forEach((row) => {
 			fraxis_last_public[row.name] = (row.public_name || "").trim() || row.ref_doctype;
 		});
@@ -98,14 +138,22 @@ frappe.ui.form.on("Fraxis Route", {
 });
 
 frappe.ui.form.on("Fraxis Excluded Field", {
-	excluded_fields_add(frm, cdt, cdn) {
-		fraxis_set_field_options(frm, cdn);
+	ref_doctype(frm, cdt, cdn) {
+		frappe.model.set_value(cdt, cdn, "fieldnames", "");
+		if (locals[cdt][cdn].ref_doctype) fraxis_select_fields(frm, cdt, cdn);
+	},
+	select_fields: fraxis_select_fields,
+});
+
+frappe.ui.form.on("Fraxis Field Mapping", {
+	field_mappings_add(frm, cdt, cdn) {
+		fraxis_set_mapping_options(frm, cdn);
 	},
 	ref_doctype(frm, cdt, cdn) {
 		frappe.model.set_value(cdt, cdn, "fieldname", "");
-		fraxis_set_field_options(frm, cdn);
+		fraxis_set_mapping_options(frm, cdn);
 	},
 	form_render(frm, cdt, cdn) {
-		fraxis_set_field_options(frm, cdn);
+		fraxis_set_mapping_options(frm, cdn);
 	},
 });

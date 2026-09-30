@@ -3,6 +3,7 @@
 # If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # For license information, please see license.txt
 
+import re
 import secrets
 
 import frappe
@@ -37,23 +38,66 @@ class FraxisSettings(Document):
             self.also_expose = []
             self.never_expose = []
 
+        self.validate_docs_languages()
         self.validate_excluded_fields()
+        self.validate_field_mappings()
         self.validate_routes()
 
     def validate_excluded_fields(self):
         seen = set()
         for row in self.excluded_fields:
-            row.fieldname = (row.fieldname or "").strip()
             if not frappe.db.exists("DocType", row.ref_doctype):
                 continue  # the Link validation reports it
-            if row.fieldname not in {f["fieldname"] for f in model.publishable_fields(row.ref_doctype)}:
+            if row.ref_doctype in seen:
                 frappe.throw(
-                    _("Excluded Fields row {0}: {1} never returns a field {2}").format(row.idx, row.ref_doctype, row.fieldname)
+                    _("Excluded Fields row {0}: {1} already has a row; add its fields there").format(row.idx, row.ref_doctype)
                 )
-            key = (row.ref_doctype, row.fieldname)
-            if key in seen:
-                frappe.throw(_("Excluded Fields row {0}: {1}.{2} is listed twice").format(row.idx, *key))
-            seen.add(key)
+            seen.add(row.ref_doctype)
+            fieldnames = config.split_fieldnames(row.get("fieldnames"))
+            if not fieldnames:
+                frappe.throw(_("Excluded Fields row {0}: select at least one field of {1}").format(row.idx, row.ref_doctype))
+            publishable = {f["fieldname"] for f in model.publishable_fields(row.ref_doctype)}
+            if unknown := [f for f in fieldnames if f not in publishable]:
+                frappe.throw(
+                    _("Excluded Fields row {0}: {1} never returns {2}").format(row.idx, row.ref_doctype, ", ".join(unknown))
+                )
+            row.fieldnames = ", ".join(fieldnames)
+
+    def validate_docs_languages(self):
+        codes = list(dict.fromkeys(c.strip() for c in (self.get("docs_languages") or "").splitlines() if c.strip()))
+        if unknown := [c for c in codes if not frappe.db.exists("Language", c)]:
+            frappe.throw(_("Docs Languages: {0} is not a Language code").format(", ".join(unknown)))
+        self.docs_languages = "\n".join(codes) or "\n".join(config.DEFAULT_DOCS_LANGUAGES)
+
+    def validate_field_mappings(self):
+        seen, public_by_doctype = set(), {}
+        for row in self.get("field_mappings") or []:
+            if not frappe.db.exists("DocType", row.ref_doctype):
+                continue  # the Link validation reports it
+            if (row.ref_doctype, row.fieldname) in seen:
+                frappe.throw(_("Field Mappings row {0}: {1}.{2} is mapped twice").format(row.idx, row.ref_doctype, row.fieldname))
+            seen.add((row.ref_doctype, row.fieldname))
+            fields = {f["fieldname"] for f in model.publishable_fields(row.ref_doctype, include_name=True)}
+            if row.fieldname not in fields:
+                frappe.throw(_("Field Mappings row {0}: {1} never returns {2}").format(row.idx, row.ref_doctype, row.fieldname))
+            row.public_name = (row.public_name or "").strip()
+            if row.public_name and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", row.public_name):
+                frappe.throw(
+                    _("Field Mappings row {0}: Public Name may only contain letters, digits and _, and not start with a digit").format(row.idx)
+                )
+            public_by_doctype.setdefault(row.ref_doctype, {})[row.fieldname] = row.public_name or row.fieldname
+
+        # Clients tell fields apart by public name: two fields of a DocType cannot share one.
+        for doctype, mapped in public_by_doctype.items():
+            owner = {}
+            for f in model.publishable_fields(doctype, include_name=True):
+                public = mapped.get(f["fieldname"], f["fieldname"])
+                if owner.setdefault(public, f["fieldname"]) != f["fieldname"]:
+                    frappe.throw(
+                        _("Field Mappings: {0} of {1} would be the public name of both {2} and {3}").format(
+                            public, doctype, owner[public], f["fieldname"]
+                        )
+                    )
 
     def validate_routes(self):
         exposed = config.compute_exposed(self)
@@ -136,9 +180,10 @@ class FraxisSettings(Document):
 
 
 @frappe.whitelist()
-def get_doctype_fields(doctype: str) -> list[dict]:
-    """Options of Excluded Fields > Field: what ``doctype`` can return through the gateway."""
+def get_doctype_fields(doctype: str, include_name: bool = False) -> list[dict]:
+    """Choices of Excluded Fields > Select Fields and Field Mappings > Field: what ``doctype`` can
+    return through the gateway (``include_name`` for mappings, which may rename the ID)."""
     frappe.only_for("System Manager")
     if not frappe.db.exists("DocType", doctype):
         return []
-    return model.publishable_fields(doctype)
+    return model.publishable_fields(doctype, include_name=frappe.utils.sbool(include_name))

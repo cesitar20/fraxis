@@ -129,14 +129,48 @@ def exposed_doctypes() -> set[str]:
     return set(cached)
 
 
+def split_fieldnames(value) -> list[str]:
+    """``"sender, assigned_by"`` (commas or new lines) -> ``["sender", "assigned_by"]``, without repeats."""
+    names = [name.strip() for name in re.split(r"[,\n]", str(value or ""))]
+    return list(dict.fromkeys(name for name in names if name))
+
+
 def excluded_fields() -> dict[str, set[str]]:
-    """DocType -> fieldnames the gateway never returns nor accepts."""
+    """DocType -> fieldnames the gateway never returns nor accepts (one settings row per DocType)."""
     out: dict[str, set[str]] = {}
     doc = settings()
     for row in (doc.excluded_fields if doc else None) or []:
-        if row.ref_doctype and row.fieldname:
-            out.setdefault(row.ref_doctype, set()).add(row.fieldname)
+        if row.ref_doctype:
+            out.setdefault(row.ref_doctype, set()).update(split_fieldnames(row.get("fieldnames")))
     return out
+
+
+@dataclass
+class FieldMapping:
+    public_name: str
+    show_description: bool = True
+
+
+def field_mappings() -> dict[str, dict[str, FieldMapping]]:
+    """DocType -> fieldname -> how clients see it; fields without a row keep their name and description."""
+    out: dict[str, dict[str, FieldMapping]] = {}
+    doc = settings()
+    for row in (doc.get("field_mappings") if doc else None) or []:
+        if row.ref_doctype and row.fieldname:
+            out.setdefault(row.ref_doctype, {})[row.fieldname] = FieldMapping(
+                (row.public_name or "").strip() or row.fieldname, bool(row.show_description)
+            )
+    return out
+
+
+DEFAULT_DOCS_LANGUAGES = ("en", "es")
+
+
+def docs_languages() -> list[str]:
+    """Languages the API docs offer; the first is the default."""
+    doc = settings()
+    codes = [line.strip() for line in ((doc.get("docs_languages") if doc else None) or "").splitlines() if line.strip()]
+    return list(dict.fromkeys(codes)) or list(DEFAULT_DOCS_LANGUAGES)
 
 
 # --- routes ------------------------------------------------------------------------------
