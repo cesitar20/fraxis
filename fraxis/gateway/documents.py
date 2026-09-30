@@ -22,7 +22,7 @@ from urllib.parse import urlencode
 
 import frappe
 
-from fraxis.gateway import config, router, scope
+from fraxis.gateway import config, lookup, router, scope
 from fraxis.gateway.odata import ODataError, model, query, serialize
 
 
@@ -42,10 +42,22 @@ def _body():
     return frappe.request.get_json(silent=True) if frappe.request.data else {}
 
 
-def _get_in_scope(doctype: str, name: str, for_update: bool = False):
-    doc = frappe.get_doc(doctype, name, for_update=for_update)
-    scope.assert_in_scope(doc)  # before permissions: a document outside it is simply not there
+def _get_in_scope(entity: model.Entity, name: str, for_update: bool = False):
+    doc = frappe.get_doc(entity.doctype, name, for_update=for_update)
+    # Before permissions: a document outside the caller's scope is simply not there.
+    scope.assert_in_scope(doc)
+    if not lookup.allowed(entity, doc):
+        raise frappe.DoesNotExistError(f"{entity.doctype} {name} not found")
     return doc
+
+
+def _parse_body(entity: model.Entity) -> dict:
+    """Request body -> Frappe values, lookup fields turned back into their internal values."""
+    data = serialize.parse_body(entity, _body())
+    for fieldname, prop in entity.props.items():
+        if prop.lookup and fieldname in data:
+            data[fieldname] = lookup.to_internal_one(prop, data[fieldname])
+    return data
 
 
 def _check_if_match(doc) -> None:
@@ -57,7 +69,7 @@ def _check_if_match(doc) -> None:
 def list_documents(route: router.Route, entity: model.Entity):
     args = frappe.request.args
     q = query.parse_list(entity, args, config.get_int("page_size"), config.get_int("max_page_size"))
-    filters = q.filters + scope.list_filters(entity.doctype)
+    filters = q.filters + scope.list_filters(entity.doctype) + lookup.restrictions(entity)
 
     rows = frappe.get_list(
         entity.doctype,
@@ -78,7 +90,7 @@ def list_documents(route: router.Route, entity: model.Entity):
             order_by=None,
         )
         payload["@odata.count"] = total[0].total if total else 0
-    payload["value"] = [serialize.row(entity.props, r) for r in rows]
+    payload["value"] = lookup.publish(entity, [serialize.row(entity.props, r) for r in rows])
     if len(rows) == q.top:
         next_args = {**args.to_dict(), "$skip": q.skip + q.top, "$top": q.top}
         payload["@odata.nextLink"] = f"{router.gateway_url(route.spec.path)}?{urlencode(next_args)}"
@@ -89,13 +101,13 @@ def read_document(route: router.Route, entity: model.Entity):
     args = frappe.request.args
     query.check_options(args, query.ITEM_OPTIONS)
     selected = query.select(entity, args.get("$select"), allow_collections=True)
-    doc = _get_in_scope(entity.doctype, route.name)
+    doc = _get_in_scope(entity, route.name)
     doc.check_permission("read")
     return _document_response(entity, doc, select=selected)
 
 
 def create_document(route: router.Route, entity: model.Entity):
-    data = serialize.parse_body(entity, _body())
+    data = _parse_body(entity)
     scope.apply_to_new(entity.doctype, data)
     doc = frappe.get_doc({**data, "doctype": entity.doctype}).insert()
     location = router.gateway_url(f"{route.spec.path}/{doc.name}")
@@ -103,9 +115,9 @@ def create_document(route: router.Route, entity: model.Entity):
 
 
 def update_document(route: router.Route, entity: model.Entity):
-    doc = _get_in_scope(entity.doctype, route.name, for_update=True)
+    doc = _get_in_scope(entity, route.name, for_update=True)
     _check_if_match(doc)
-    data = serialize.parse_body(entity, _body())
+    data = _parse_body(entity)
     scope.check_update(entity.doctype, data)
     doc.update(data)
     doc.save()
@@ -113,7 +125,7 @@ def update_document(route: router.Route, entity: model.Entity):
 
 
 def delete_document(route: router.Route, entity: model.Entity):
-    doc = _get_in_scope(entity.doctype, route.name)
+    doc = _get_in_scope(entity, route.name)
     _check_if_match(doc)
     frappe.delete_doc(entity.doctype, doc.name)
     return serialize.empty_response()
@@ -121,6 +133,6 @@ def delete_document(route: router.Route, entity: model.Entity):
 
 def _document_response(entity, doc, status: int = 200, headers: dict | None = None, select=None):
     doc.apply_fieldlevel_read_permissions()
-    payload = serialize.document(entity, doc, select)
+    payload = lookup.publish(entity, [serialize.document(entity, doc, select)])[0]
     etag = payload.get("@odata.etag")
     return serialize.json_response(payload, status, {**({"ETag": etag} if etag else {}), **(headers or {})})

@@ -149,6 +149,9 @@ def excluded_fields() -> dict[str, set[str]]:
 class FieldMapping:
     public_name: str
     show_description: bool = True
+    example: str = ""
+    lookup: tuple[str, str, str] | None = None  # (DocType, match field, value field) clients see instead
+    lookup_restrict: bool = True  # limit rows to values of the lookup records the client sees
 
 
 def field_mappings() -> dict[str, dict[str, FieldMapping]]:
@@ -158,7 +161,13 @@ def field_mappings() -> dict[str, dict[str, FieldMapping]]:
     for row in (doc.get("field_mappings") if doc else None) or []:
         if row.ref_doctype and row.fieldname:
             out.setdefault(row.ref_doctype, {})[row.fieldname] = FieldMapping(
-                (row.public_name or "").strip() or row.fieldname, bool(row.show_description)
+                (row.public_name or "").strip() or row.fieldname,
+                bool(row.show_description),
+                (row.get("example") or "").strip(),
+                (row.lookup_doctype, row.lookup_field, row.get("lookup_value") or "name")
+                if row.get("lookup_doctype") and row.get("lookup_field")
+                else None,
+                row.get("lookup_restrict") is None or bool(row.lookup_restrict),  # unset: restrict
             )
     return out
 

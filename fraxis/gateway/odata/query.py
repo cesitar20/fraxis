@@ -67,7 +67,7 @@ def field_parameters(entity: Entity) -> dict[str, FieldParam]:
             continue
         if prop.fieldtype != "Datetime":
             params[prop.public] = FieldParam(fieldname, prop, "=")
-        if prop.fieldtype in ("Date", "Datetime"):
+        if prop.fieldtype in ("Date", "Datetime") and not prop.lookup:
             params[f"{prop.public}_from"] = FieldParam(fieldname, prop, ">=")
             params[f"{prop.public}_to"] = FieldParam(fieldname, prop, "<=")
     return params
@@ -106,8 +106,21 @@ def _conditions(conds, entity: Entity) -> list:
         fieldname = _fieldname(entity, public, "$filter")
         prop = entity.props[fieldname]
         value = [_literal(v, prop) for v in lit] if isinstance(lit, list) else _literal(lit, prop)
-        out.append([entity.doctype, fieldname, op, value])
+        if prop.lookup and op != "is":
+            out.append(_lookup_condition(entity, fieldname, prop, op, value))
+        else:
+            out.append([entity.doctype, fieldname, op, value])
     return out
+
+
+def _lookup_condition(entity: Entity, fieldname: str, prop: Prop, op: str, value) -> list:
+    """A lookup field compares the other record's value: only equality makes sense across the two."""
+    from fraxis.gateway import lookup
+
+    if op not in ("=", "!=", "in", "not in"):
+        raise ODataError(f"{prop.public} only supports eq, ne and in")
+    values = value if isinstance(value, list) else [value]
+    return lookup.in_filter(entity, fieldname, lookup.to_internal(prop, values), negate=op in ("!=", "not in"))
 
 
 def _param_value(name: str, param: FieldParam, raw: str):
@@ -146,7 +159,11 @@ def _field_filters(entity: Entity, args, params: dict[str, FieldParam]) -> list:
             if not values:
                 raise ODataError(f"Invalid value for {name}: {raw!r}")
             converted = [_param_value(name, param, v) for v in values]
-            if len(converted) > 1:
+            if param.prop.lookup:
+                from fraxis.gateway import lookup
+
+                out.append(lookup.in_filter(entity, param.fieldname, lookup.to_internal(param.prop, converted)))
+            elif len(converted) > 1:
                 out.append([entity.doctype, param.fieldname, "in", converted])
             else:
                 out.append([entity.doctype, param.fieldname, param.operator, converted[0]])

@@ -35,10 +35,13 @@ class Prop:
     fieldtype: str
     label: str = ""
     required: bool = False
-    options: str | None = None  # Link target / Select choices
+    options: str | None = None  # Select choices / Data kind (Email, Phone, URL)
     read_only: bool = False  # standard columns; the DocType's own fields stay writable as in Frappe's API
     public: str = ""  # name clients see and send (Fraxis Settings > Field Mappings); the fieldname by default
     description: str = ""  # the field's description, when the docs show it
+    example: str = ""  # Field Mappings > Example; the docs fall back to one based on the fieldtype
+    lookup: tuple[str, str, str] | None = None  # Field Mappings > Lookup (see fraxis.gateway.lookup)
+    lookup_restrict: bool = True  # Field Mappings > Restrict Rows
 
 
 @dataclass
@@ -76,6 +79,15 @@ def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tup
     def public(fieldname: str) -> str:
         return mappings[fieldname].public_name if fieldname in mappings else fieldname
 
+    def example(fieldname: str) -> str:
+        return mappings[fieldname].example if fieldname in mappings else ""
+
+    def lookup(fieldname: str):
+        return mappings[fieldname].lookup if fieldname in mappings else None
+
+    def lookup_restrict(fieldname: str) -> bool:
+        return mappings[fieldname].lookup_restrict if fieldname in mappings else True
+
     def description(fieldname: str, text: str | None) -> str:
         return (text or "") if fieldname not in mappings or mappings[fieldname].show_description else ""
 
@@ -85,7 +97,8 @@ def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tup
             continue
         if key not in excluded:
             props[key] = Prop(
-                key, fieldtype, STANDARD_LABELS[key], required=key == "name", read_only=True, public=public(key)
+                key, fieldtype, STANDARD_LABELS[key], required=key == "name", read_only=True, public=public(key),
+                example=example(key),
             )
     for df in meta.fields:
         if df.fieldname in excluded:
@@ -98,9 +111,12 @@ def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tup
                 df.fieldtype,
                 df.label or df.fieldname,
                 required=bool(df.reqd),
-                options=df.options if df.fieldtype in ("Link", "Select") else None,
+                options=df.options if df.fieldtype in ("Select", "Data") else None,  # choices / Email, Phone, URL
                 public=public(df.fieldname),
                 description=description(df.fieldname, df.description),
+                example=example(df.fieldname),
+                lookup=lookup(df.fieldname),
+                lookup_restrict=lookup_restrict(df.fieldname),
             )
     return props, collections
 
