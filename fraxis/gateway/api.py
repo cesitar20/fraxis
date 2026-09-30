@@ -213,9 +213,15 @@ _TRANSLATE_UI = """<script>
 (function () {{
   const UI = {ui_json}, PREFIXES = {prefixes_json};
   if (!Object.keys(UI).length && !Object.keys(PREFIXES).length) return;
-  // Only a label that is the whole text of its element: "Request" inside "TokenRequest" stays.
+  // Only a label that is the whole visible text of its element: "Request" inside "TokenRequest"
+  // stays. Screen-reader-only prefixes do not count ("Agent" + "Operations" is still a label).
+  const visible = (el) => {{
+    let text = el.textContent;
+    el.querySelectorAll(".screenreader-only").forEach((s) => (text = text.replace(s.textContent, "")));
+    return text.trim();
+  }};
   const skip = (node, key) => !node.parentElement || node.parentElement.closest("pre, code, textarea, script, style")
-    || node.parentElement.textContent.trim() !== key;
+    || visible(node.parentElement) !== key;
   function translate(node) {{
     const text = node.nodeValue, key = text.trim();
     if (!key || skip(node, key)) return;
