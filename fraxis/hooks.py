@@ -89,6 +89,9 @@ app_license = "mpl-2.0"
 
 # before_install = "fraxis.install.before_install"
 # after_install = "fraxis.install.after_install"
+# REST gateway: persist Fraxis Settings defaults and generate the token signing secret.
+after_install = "fraxis.gateway.config.ensure_settings"
+after_migrate = ["fraxis.gateway.config.ensure_settings"]
 
 # Uninstallation
 # ------------
@@ -151,11 +154,20 @@ doc_events = {
 		"after_insert": "fraxis.runtime.doc_event_bridge.on_after_insert",
 		"on_update": "fraxis.runtime.doc_event_bridge.on_update",
 		"on_trash": "fraxis.runtime.doc_event_bridge.on_trash",
-	}
+	},
+	# REST gateway: User is only observed; its gateway data lives in Fraxis User Profile.
+	"User": {
+		"on_trash": "fraxis.gateway.user.delete_profile",
+	},
 }
 
 # Scheduled Tasks
 # ---------------
+
+# REST gateway: drop refresh tokens that expired more than a week ago.
+scheduler_events = {
+	"daily": ["fraxis.gateway.tokens.purge_expired"],
+}
 
 # scheduler_events = {
 # 	"all": [
@@ -208,6 +220,9 @@ doc_events = {
 # before_request = ["fraxis.utils.before_request"]
 # after_request = ["fraxis.utils.after_request"]
 
+# REST gateway: <base_path>/... is resolved and rewritten onto fraxis.gateway.api (no-op elsewhere).
+before_request = ["fraxis.gateway.router.route_request"]
+
 # Job Events
 # ----------
 # Fraxis does NOT register a bench-global after_job hook. Job completion is reported via
@@ -245,6 +260,9 @@ doc_events = {
 # auth_hooks = [
 # 	"fraxis.auth.validate"
 # ]
+
+# REST gateway: Bearer access token on gateway routes only.
+auth_hooks = ["fraxis.gateway.auth.authenticate"]
 
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True
