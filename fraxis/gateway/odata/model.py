@@ -37,6 +37,8 @@ class Prop:
     required: bool = False
     options: str | None = None  # Link target / Select choices
     read_only: bool = False  # standard columns; the DocType's own fields stay writable as in Frappe's API
+    public: str = ""  # name clients see and send (Fraxis Settings > Field Mappings); the fieldname by default
+    description: str = ""  # the field's description, when the docs show it
 
 
 @dataclass
@@ -45,9 +47,22 @@ class Entity:
     props: dict[str, Prop] = field(default_factory=dict)
     collections: dict[str, str] = field(default_factory=dict)  # fieldname -> child DocType
     description: str = ""
+    collection_public: dict[str, str] = field(default_factory=dict)  # child table fieldname -> public name
 
     def child_props(self, fieldname: str) -> dict[str, Prop]:
         return _props(frappe.get_meta(self.collections[fieldname]), CHILD_STANDARD)[0]
+
+    def public(self, fieldname: str) -> str:
+        """Public name of a property or child table."""
+        prop = self.props.get(fieldname)
+        return prop.public if prop else self.collection_public.get(fieldname, fieldname)
+
+    def fieldname(self, public: str) -> str | None:
+        """Property or child table behind a public name, or None when clients cannot use it."""
+        for name, prop in self.props.items():
+            if prop.public == public:
+                return name
+        return next((name for name, alias in self.collection_public.items() if alias == public), None)
 
 
 STANDARD_LABELS = {"name": "ID", "creation": "Created On", "modified": "Last Updated On",
@@ -56,12 +71,22 @@ STANDARD_LABELS = {"name": "ID", "creation": "Created On", "modified": "Last Upd
 
 def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tuple[dict[str, Prop], dict[str, str]]:
     excluded = config.excluded_fields().get(meta.name, set()) if apply_exclusions else set()
+    mappings = config.field_mappings().get(meta.name, {}) if apply_exclusions else {}
+
+    def public(fieldname: str) -> str:
+        return mappings[fieldname].public_name if fieldname in mappings else fieldname
+
+    def description(fieldname: str, text: str | None) -> str:
+        return (text or "") if fieldname not in mappings or mappings[fieldname].show_description else ""
+
     props, collections = {}, {}
     for key, fieldtype in standard.items():
         if key == "docstatus" and not meta.is_submittable:
             continue
         if key not in excluded:
-            props[key] = Prop(key, fieldtype, STANDARD_LABELS[key], required=key == "name", read_only=True)
+            props[key] = Prop(
+                key, fieldtype, STANDARD_LABELS[key], required=key == "name", read_only=True, public=public(key)
+            )
     for df in meta.fields:
         if df.fieldname in excluded:
             continue
@@ -74,6 +99,8 @@ def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tup
                 df.label or df.fieldname,
                 required=bool(df.reqd),
                 options=df.options if df.fieldtype in ("Link", "Select") else None,
+                public=public(df.fieldname),
+                description=description(df.fieldname, df.description),
             )
     return props, collections
 
@@ -81,15 +108,21 @@ def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tup
 def entity(doctype: str) -> Entity:
     meta = frappe.get_meta(doctype)
     props, collections = _props(meta, STANDARD)
-    return Entity(doctype, props, collections, meta.description or "")
+    mappings = config.field_mappings().get(doctype, {})
+    collection_public = {f: mappings[f].public_name if f in mappings else f for f in collections}
+    return Entity(doctype, props, collections, meta.description or "", collection_public)
 
 
-def publishable_fields(doctype: str) -> list[dict]:
-    """Every field the DocType can return, before exclusions (``name`` identifies the document and
-    is left out): what ``Fraxis Settings > Excluded Fields`` may exclude."""
+def publishable_fields(doctype: str, include_name: bool = False) -> list[dict]:
+    """Every field the DocType can return, before exclusions and mappings: what Excluded Fields may
+    exclude (``name`` identifies the document and is left out) and Field Mappings may rename."""
     meta = frappe.get_meta(doctype)
     props, collections = _props(meta, CHILD_STANDARD if meta.istable else STANDARD, apply_exclusions=False)
-    fields = [{"fieldname": n, "label": p.label, "fieldtype": p.fieldtype} for n, p in props.items() if n != "name"]
+    fields = [
+        {"fieldname": n, "label": p.label, "fieldtype": p.fieldtype}
+        for n, p in props.items()
+        if include_name or n != "name"
+    ]
     labels = {df.fieldname: df.label for df in meta.fields}
     fields += [{"fieldname": n, "label": labels.get(n) or n, "fieldtype": "Table"} for n in collections]
     return fields

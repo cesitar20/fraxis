@@ -84,30 +84,38 @@ def value(prop: Prop, raw):
 
 
 def row(props: dict[str, Prop], data: dict) -> dict:
-    return {key: value(props[key], data.get(key)) for key in props if key in data}
+    """Frappe row -> client row, keyed by each property's public name."""
+    return {prop.public: value(prop, data.get(key)) for key, prop in props.items() if key in data}
 
 
 def document(entity: Entity, doc, select: list[str] | None = None) -> dict:
+    """``select``: fieldnames (already translated from public names) to keep besides ``name``."""
     data = doc.as_dict()
-    out = row(entity.props, data)
+    props = {k: p for k, p in entity.props.items() if not select or k in select or k == "name"}
+    out = row(props, data)
     for fieldname in entity.collections:
-        child_props = entity.child_props(fieldname)
-        out[fieldname] = [row(child_props, child) for child in data.get(fieldname) or []]
-    if select:
-        out = {k: v for k, v in out.items() if k in select or k == "name"}
+        if not select or fieldname in select:
+            child_props = entity.child_props(fieldname)
+            out[entity.public(fieldname)] = [row(child_props, child) for child in data.get(fieldname) or []]
     return {"@odata.etag": etag(data["modified"]), **out} if data.get("modified") else out
 
 
 # --- values in -----------------------------------------------------------------------------
 
+def _by_public(props: dict[str, Prop]) -> dict[str, tuple[str, Prop]]:
+    return {prop.public: (key, prop) for key, prop in props.items()}
+
+
 def _writable(props: dict[str, Prop], body: dict, where: str, keep: tuple[str, ...] = ()) -> dict:
+    """Client row (public names) -> Frappe values (fieldnames)."""
+    by_public = _by_public(props)
     clean = {}
-    for key, raw in body.items():
-        if key.startswith("@"):
+    for public, raw in body.items():
+        if public.startswith("@"):
             continue  # OData annotations (@odata.etag, ...)
-        prop = props.get(key)
+        key, prop = by_public.get(public, (None, None))
         if not prop or (prop.read_only and key not in keep):
-            raise ODataError(f"Unknown or read-only property {where}{key!r}")
+            raise ODataError(f"Unknown or read-only property {where}{public!r}")
         if prop.fieldtype == "Datetime" and isinstance(raw, str) and "T" in raw:
             raw = to_system_datetime(raw)
         elif prop.fieldtype == "Check" and isinstance(raw, bool):
@@ -122,15 +130,15 @@ def parse_body(entity: Entity, body) -> dict:
     """JSON body of a create / update -> Frappe values; rejects anything outside the model."""
     if not isinstance(body, dict):
         raise ODataError("Request body must be a JSON object")
-    scalars = {k: v for k, v in body.items() if k not in entity.collections}
-    clean = _writable(entity.props, scalars, "")
-    for fieldname in entity.collections.keys() & body.keys():
-        rows = body[fieldname]
+    tables = {entity.public(f): f for f in entity.collections}
+    clean = _writable(entity.props, {k: v for k, v in body.items() if k not in tables}, "")
+    for public in tables.keys() & body.keys():
+        fieldname, rows = tables[public], body[public]
         if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
-            raise ODataError(f"{fieldname!r} must be an array of objects")
+            raise ODataError(f"{public!r} must be an array of objects")
         child_props = entity.child_props(fieldname)
         # A child row may name an existing row to update it in place.
-        clean[fieldname] = [_writable(child_props, r, f"{fieldname}.", keep=("name",)) for r in rows]
+        clean[fieldname] = [_writable(child_props, r, f"{public}.", keep=("name",)) for r in rows]
     return clean
 
 
