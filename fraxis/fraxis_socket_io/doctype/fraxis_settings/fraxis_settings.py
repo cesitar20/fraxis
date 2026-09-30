@@ -85,6 +85,7 @@ class FraxisSettings(Document):
                 frappe.throw(
                     _("Field Mappings row {0}: Public Name may only contain letters, digits and _, and not start with a digit").format(row.idx)
                 )
+            self.validate_lookup(row)
             public_by_doctype.setdefault(row.ref_doctype, {})[row.fieldname] = row.public_name or row.fieldname
 
         # Clients tell fields apart by public name: two fields of a DocType cannot share one.
@@ -98,6 +99,24 @@ class FraxisSettings(Document):
                             public, doctype, owner[public], f["fieldname"]
                         )
                     )
+
+    @staticmethod
+    def validate_lookup(row) -> None:
+        if not row.get("lookup_doctype"):
+            row.lookup_field = row.lookup_value = None
+            return
+        prefix = _("Field Mappings row {0}").format(row.idx)
+        if row.lookup_doctype in config.NEVER_EXPOSED:
+            frappe.throw(_("{0}: {1} cannot be a Lookup DocType").format(prefix, row.lookup_doctype))
+        df = frappe.get_meta(row.ref_doctype).get_field(row.fieldname)
+        if not df or df.fieldtype not in ("Data", "Link", "Dynamic Link"):
+            frappe.throw(_("{0}: only a Data or Link field can be looked up").format(prefix))
+        meta = frappe.get_meta(row.lookup_doctype)
+        row.lookup_field = (row.lookup_field or "").strip()
+        row.lookup_value = (row.lookup_value or "").strip() or "name"
+        for field in (row.lookup_field, row.lookup_value):
+            if field != "name" and not meta.has_field(field):
+                frappe.throw(_("{0}: {1} has no field {2}").format(prefix, row.lookup_doctype, field or '""'))
 
     def validate_routes(self):
         exposed = config.compute_exposed(self)
