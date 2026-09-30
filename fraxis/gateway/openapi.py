@@ -82,10 +82,57 @@ def _type_schema(p: model.Prop) -> dict:
     return {"type": "string"}
 
 
+# Shown when Field Mappings sets no Example for the field.
+TYPE_EXAMPLES = {
+    "Check": True, "Int": 10, "Long Int": 1000, "Duration": 90, "Float": 12.5, "Currency": 12.5,
+    "Percent": 50, "Rating": 0.8, "Date": "2026-09-01", "Datetime": "2026-09-01T14:30:00-05:00", "Time": "14:30:00",
+}
+DATA_EXAMPLES = {"Email": "user@example.com", "Phone": "+573001234567", "URL": "https://example.com"}
+
+
+def _example(p: model.Prop):
+    """The field's Example (Field Mappings), typed like the field, else one based on its type."""
+    if p.example:
+        try:
+            if p.fieldtype == "Check":
+                return p.example.strip().lower() in ("1", "true", "yes")
+            if p.fieldtype in INT_TYPES:
+                return int(p.example)
+            if p.fieldtype in FLOAT_TYPES:
+                return float(p.example)
+        except ValueError:
+            pass
+        return p.example
+    if p.fieldtype == "Select" and p.options:
+        return next((c for c in p.options.split("\n") if c), None)
+    if p.fieldtype == "Data" and p.options in DATA_EXAMPLES:
+        return DATA_EXAMPLES[p.options]
+    return TYPE_EXAMPLES.get(p.fieldtype)
+
+
+def _param_example(param: query.FieldParam):
+    """Example of a filter value: a date alone for ranges, true/false as text."""
+    if param.prop.example:
+        return param.prop.example
+    if param.prop.fieldtype in ("Date", "Datetime") and param.operator != "=":
+        return "2026-09-01" if param.operator == ">=" else "2026-09-30"
+    value = _example(param.prop)
+    return str(value).lower() if isinstance(value, bool) else value
+
+
+def _label(p: model.Prop) -> str:
+    """Title of a property: a lookup field is named after its public name, never its own label."""
+    if p.lookup:
+        return _(p.public.replace("_", " ").capitalize())
+    return _(p.label or p.public)
+
+
 def _prop_schema(p: model.Prop) -> dict:
     schema = _type_schema(p)
-    if p.label and p.label != p.name:
-        schema["title"] = _(p.label)
+    if (example := _example(p)) is not None:
+        schema["example"] = example
+    if p.lookup or (p.label and p.label != p.name):
+        schema["title"] = _label(p)
     if p.description:
         schema["description"] = _(p.description)
     if p.read_only:
@@ -123,7 +170,7 @@ def _filter_parameters(entity: model.Entity) -> list[dict]:
     an enum, so Scalar's generated requests carry only what the caller fills in."""
     out = []
     for name, param in query.field_parameters(entity).items():
-        label = _(param.prop.label or param.prop.public)
+        label = _label(param.prop)
         schema = _type_schema(param.prop)
         if param.operator == ">=":
             text = _("{0}: from this value (included)").format(label)
@@ -137,6 +184,9 @@ def _filter_parameters(entity: model.Entity) -> list[dict]:
                 # Named in the text, not as an enum: Scalar would put the first choice in every request.
                 text += " " + _("Values: {0}").format(", ".join(f"`{c}`" for c in choices))
             schema["type"] = "string"
+        if (example := _param_example(param)) is not None:
+            # In the text, not as ``example``: Scalar would copy it into every generated request.
+            text += " " + _("Example: {0}").format(f"`{example}`")
         out.append({"name": name, "in": "query", "description": text, "schema": schema})
     return out
 
@@ -151,7 +201,7 @@ def _odata_parameters(entity: model.Entity) -> list[dict]:
                           "`and`, `or`, `not`, parentheses; shape `a and b and (c or d)`. Strings in single quotes, datetimes "
                           "as ISO 8601, e.g. `modified ge 2026-09-01T00:00:00Z`")},
         {"name": "$orderby", "in": "query", "schema": {"type": "string"},
-         "description": _("Sort, e.g. `modified desc`; default `modified desc`")},
+         "description": _("Sort, e.g. `creation asc`; default `creation desc` (newest first)")},
         {"name": "$top", "in": "query", "description": _("Page size (default {0})").format(config.get_int("page_size")),
          "schema": {"type": "integer", "minimum": 1, "maximum": config.get_int("max_page_size")}},
         {"name": "$skip", "in": "query", "description": _("Records to skip"), "schema": {"type": "integer", "minimum": 0}},
@@ -235,6 +285,7 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
 # --- authentication -------------------------------------------------------------------------
 
 AUTH_TAG = "auth"
+SECURITY_SCHEME = "Bearer"  # shown by Scalar as the auth type
 KEY_EXAMPLE = {"api_key": "a1b2c3d4e5f6g7h", "api_secret": "9z8y7x6w5v4u3t2"}
 REFRESH_EXAMPLE = "rt1.Q2hhbmdlIG1lIC0gZXhhbXBsZSByZWZyZXNoIHRva2Vu..."
 
@@ -346,8 +397,9 @@ def _description(example_path: str | None) -> str:
         _code(f'curl -X POST "{router.gateway_url("/auth/revoke")}" \\', f"  {json_header}",
               """  -d '{"token": "<refresh_token>"}'"""),
         _("If your API Key and API Secret are replaced or your access is disabled, every token stops working at once."),
-        _("To try the routes from this page, paste your access token in **Authentication** (Bearer Token), or choose "
-          "*OAuth2 client credentials* with Client ID = API Key and Client Secret = API Secret and press *Authorize*."),
+        _("To try the routes from this page, run **Get an access token** with *Test Request*, copy the `access_token` "
+          "and paste it in **Authentication**, *Bearer Token*: the request examples and the downloaded document then use "
+          "it as Bearer authentication."),
         "## " + _("Filters"),
         _("Lists are filtered with one query parameter per field: `?status=Active`, several values separated by commas "
           "(`?status=Active,Paused`), and `_from` / `_to` on dates (`?creation_from=2026-09-01&creation_to=2026-09-30`). "
@@ -389,21 +441,14 @@ def _components(schemas: dict) -> dict:
             "error": {"type": "string"}, "error_description": {"type": "string"}}},
     })
     return {
+        # One scheme only: clients importing the document (Postman, Bruno, Insomnia) set it as the
+        # collection's Bearer auth instead of choosing between flows or copying it into headers.
         "securitySchemes": {
-            "bearerAuth": {
+            SECURITY_SCHEME: {
                 "type": "http",
                 "scheme": "bearer",
                 "bearerFormat": "JWT",
                 "description": _("`access_token` returned by POST /auth/token."),
-            },
-            "clientCredentials": {
-                "type": "oauth2",
-                "description": _("Client ID = API Key, Client Secret = API Secret."),
-                "flows": {"clientCredentials": {
-                    "tokenUrl": router.gateway_url("/auth/token"),
-                    "refreshUrl": router.gateway_url("/auth/refresh"),
-                    "scopes": {},
-                }},
             },
         },
         "responses": responses,
@@ -444,7 +489,7 @@ def build() -> dict:
         "openapi": "3.0.3",
         "info": {"title": _(DOCS_TITLE), "version": __version__, "description": _description(first_list)},
         "servers": [{"url": router.gateway_url(), "description": frappe.local.site}],
-        "security": [{"bearerAuth": []}, {"clientCredentials": []}],
+        "security": [{SECURITY_SCHEME: []}],
         "tags": tags,
         "x-tagGroups": [{"name": name, "tags": group} for name, group in groups.items()],
         "paths": paths,
