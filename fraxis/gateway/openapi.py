@@ -23,6 +23,8 @@ from fraxis import __version__
 from fraxis.gateway import config, router
 from fraxis.gateway.odata import model
 
+# Public title of the docs: nothing on the page may name the platform behind the API.
+DOCS_TITLE = "API Documentation"
 INT_TYPES = ("Int", "Long Int", "Duration")
 FLOAT_TYPES = ("Float", "Currency", "Percent", "Rating")
 ERROR_EXAMPLES = {
@@ -203,7 +205,7 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
 
 AUTH_TAG = "auth"
 KEY_EXAMPLE = {"api_key": "a1b2c3d4e5f6g7h", "api_secret": "9z8y7x6w5v4u3t2"}
-REFRESH_EXAMPLE = "fxr1.Q2hhbmdlIG1lIC0gZXhhbXBsZSByZWZyZXNoIHRva2Vu..."
+REFRESH_EXAMPLE = "rt1.Q2hhbmdlIG1lIC0gZXhhbXBsZSByZWZyZXNoIHRva2Vu..."
 
 
 def _token_example() -> dict:
@@ -227,7 +229,7 @@ def _auth_paths() -> dict:
         "tags": [AUTH_TAG],
         "operationId": "auth_token",
         "summary": "Get an access token",
-        "description": "Send the API Key and API Secret of your user. Every other route only accepts the "
+        "description": "Send the API Key and API Secret provided to you. Every other route only accepts the "
         "returned `access_token` as `Authorization: Bearer <access_token>`. Keep the `refresh_token` to renew "
         "it with **Refresh the access token**. Also accepted as OAuth2 client credentials "
         "(`grant_type=client_credentials` with `client_id` / `client_secret`, in the form body or as HTTP Basic) "
@@ -246,7 +248,7 @@ def _auth_paths() -> dict:
             "400": _oauth_error("invalid_request", "api_key and api_secret are required"),
             "401": _oauth_error("invalid_client", "Invalid api_key or api_secret"),
             "403": _oauth_error("unauthorized_client",
-                                "Gateway access is not enabled for this user (Fraxis User Profile > API Enabled)"),
+                                "API access is not enabled for this account"),
             "429": {"description": "Too many token requests (30 per minute)"},
         },
     }}
@@ -294,8 +296,9 @@ def _description(example_path: str | None) -> str:
     return f"""\
 ## How to authenticate
 
-**1. Get the tokens** with the API Key and API Secret of your user
-(Frappe: *User > Settings > API Access > Generate Keys*; the user needs a *Fraxis User Profile* with *API Enabled*):
+Your **API Key** and **API Secret** are provided to you together with your access to this API.
+
+**1. Get the tokens** with your API Key and API Secret:
 
 ```bash
 curl -X POST "{token_url}" \\
@@ -305,7 +308,7 @@ curl -X POST "{token_url}" \\
 
 ```json
 {{"access_token": "eyJhbGciOiJIUzI1NiIs...", "token_type": "Bearer", "expires_in": {ttl},
- "refresh_token": "fxr1.Q2hhbmdl...", "refresh_expires_in": {refresh_ttl}}}
+ "refresh_token": "rt1.Q2hhbmdl...", "refresh_expires_in": {refresh_ttl}}}
 ```
 
 **2. Send it on every request** — no other credential is accepted by the routes:
@@ -333,7 +336,7 @@ curl -X POST "{revoke_url}" \\
   -d '{{"token": "<refresh_token>"}}'
 ```
 
-Regenerating the API keys, disabling the user or its *API Enabled* flag revokes every token at once.
+If your API Key and API Secret are replaced or your access is disabled, every token stops working at once.
 
 To try the routes from this page, open **Authentication** and choose *OAuth2 client credentials*:
 Client ID = API Key, Client Secret = API Secret, then *Authorize*.
@@ -356,8 +359,8 @@ def _components(schemas: dict) -> dict:
         "Error": {"type": "object", "properties": {"error": {"type": "object", "properties": {
             "code": {"type": "string"}, "message": {"type": "string"}}}}},
         "TokenRequest": {"type": "object", "required": ["api_key", "api_secret"], "properties": {
-            "api_key": {"type": "string", "description": "API Key of the user"},
-            "api_secret": {"type": "string", "format": "password", "description": "API Secret of the user"}}},
+            "api_key": {"type": "string", "description": "API Key provided to you"},
+            "api_secret": {"type": "string", "format": "password", "description": "API Secret provided to you"}}},
         "ClientCredentials": {"type": "object", "required": ["grant_type", "client_id", "client_secret"], "properties": {
             "grant_type": {"type": "string", "enum": ["client_credentials"]},
             "client_id": {"type": "string", "description": "API Key"},
@@ -428,7 +431,7 @@ def build() -> dict:
     first_list = next((s.path for s in specs if "GET" in s.verbs), None)
     return {
         "openapi": "3.0.3",
-        "info": {"title": "Fraxis API", "version": __version__, "description": _description(first_list)},
+        "info": {"title": DOCS_TITLE, "version": __version__, "description": _description(first_list)},
         "servers": [{"url": router.gateway_url(), "description": frappe.local.site}],
         "security": [{"bearerAuth": []}, {"clientCredentials": []}],
         "tags": tags,

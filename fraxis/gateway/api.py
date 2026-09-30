@@ -19,7 +19,7 @@ from frappe import _
 from frappe.rate_limiter import rate_limit
 from werkzeug.wrappers import Response
 
-from fraxis.gateway import auth, config, documents, router
+from fraxis.gateway import auth, config, documents, openapi, router
 from fraxis.gateway.odata import serialize
 
 ALL_VERBS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
@@ -126,8 +126,6 @@ def openapi_spec():
         return serialize.error_response(404, "NotFound", _("Not found"))
     if not _docs_allowed():
         return serialize.error_response(403, "Forbidden", _("Log in to read the API documentation"))
-    from fraxis.gateway import openapi
-
     cache_key = f"{config.CACHE_PREFIX}openapi:{router.gateway_url()}"
     spec = frappe.cache.get_value(cache_key)
     if spec is None:
@@ -148,16 +146,17 @@ SCALAR_HIDDEN_CLIENTS = {
     "ruby": ["native"], "rust": ["reqwest"], "shell": ["httpie", "wget"], "swift": ["nsurlsession"],
 }
 
+# "Try it" calls authenticate with the access token only. Sending the desk ``sid`` cookie would
+# make Frappe enforce CSRF on POST/PATCH/DELETE before the gateway runs, so the page sends every
+# gateway request except the spec itself without cookies. (Kept here: the served page never
+# names the platform.)
 _PAGE = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fraxis API</title>
+<title>{title}</title>
 <script>
-// "Try it" calls authenticate with the access token only. Sending the desk ``sid`` cookie
-// would make Frappe enforce CSRF on POST/PATCH/DELETE before the gateway runs, so every
-// gateway request except the spec itself is sent without cookies.
 (function () {{
   const base = {base_json}, spec = base + "/openapi.json";
   const nativeFetch = window.fetch;
@@ -197,5 +196,7 @@ def docs():
         "authentication": {"preferredSecurityScheme": "clientCredentials"},
         "hiddenClients": SCALAR_HIDDEN_CLIENTS,
     }
-    page = _PAGE.format(base_json=json.dumps(router.gateway_path()), config_json=json.dumps(scalar_config))
+    page = _PAGE.format(
+        title=openapi.DOCS_TITLE, base_json=json.dumps(router.gateway_path()), config_json=json.dumps(scalar_config)
+    )
     return Response(page, mimetype="text/html")
