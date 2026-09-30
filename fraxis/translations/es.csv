@@ -135,3 +135,4 @@ Open Group -,Abrir grupo -
 Copy link to,Copiar enlace a
 Request Example for,Ejemplo de petición para
 **Postman or Bruno**: import the document from *Download OpenAPI Document*. Every request comes with Bearer authentication set to {0}: define a `token` variable in the environment with your access token and every request uses it.,**Postman o Bruno**: importa el documento desde *Descargar documento OpenAPI*. Cada petición viene con autenticación Bearer en {0}: define una variable `token` en el entorno con tu token de acceso y todas las peticiones la usan.
+"{0}: this whole day, as YYYY-MM-DD or DD-MM-YYYY","{0}: todo este día, como YYYY-MM-DD o DD-MM-YYYY"

@@ -118,7 +118,7 @@ def _param_example(param: query.FieldParam):
     if param.prop.example:
         return param.prop.example
     if param.prop.fieldtype in ("Date", "Datetime") and param.operator != "=":
-        return "2026-09-01" if param.operator == ">=" else "2026-09-30"
+        return {"day": "2026-09-23", ">=": "2026-09-01"}.get(param.operator, "2026-09-30")
     value = _example(param.prop)
     return str(value).lower() if isinstance(value, bool) else value
 
@@ -179,7 +179,10 @@ def _filter_parameters(entity: model.Entity) -> list[dict]:
         # parameter's description next to its request example, and it also travels in the document.
         paragraphs = [_(param.prop.description)] if param.prop.description else []
         choices = None
-        if param.operator == ">=":
+        if param.operator == "day":
+            text = _("{0}: this whole day, as YYYY-MM-DD or DD-MM-YYYY").format(label)
+            schema = {"type": "string", "format": "date"}
+        elif param.operator == ">=":
             text = _("{0}: from this value (included)").format(label)
         elif param.operator == "<=":
             text = _("{0}: up to this value (included); a date alone includes the whole day").format(label)

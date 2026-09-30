@@ -12,6 +12,7 @@ Field filters, one parameter per property (see :func:`field_parameters`)::
 
     ?status=Active                 equals
     ?status=Active,Paused          any of
+    ?creation=2026-09-23           a datetime's whole day (23-09-2026 works too)
     ?creation_from=2026-09-01&creation_to=2026-09-30T23:59:59Z    date / datetime range
 
 OData options, for what field filters cannot express::
@@ -38,13 +39,23 @@ UNFILTERABLE = frozenset(
 INT_TYPES = ("Int", "Long Int", "Duration")
 FLOAT_TYPES = ("Float", "Currency", "Percent", "Rating")
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+DMY_RE = re.compile(r"(\d{2})-(\d{2})-(\d{4})")  # 23-09-2026, as dates are written in the desk
+
+
+def _iso_date(raw: str) -> str | None:
+    """``2026-09-23`` or ``23-09-2026`` -> ``2026-09-23``; anything else -> None."""
+    if DATE_RE.fullmatch(raw):
+        return raw
+    if m := DMY_RE.fullmatch(raw):
+        return f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
+    return None
 
 
 @dataclass
 class FieldParam:
     fieldname: str
     prop: Prop
-    operator: str  # "=" (comma-separated values: any of), ">=" (_from) or "<=" (_to)
+    operator: str  # "=" (comma-separated: any of), "day" (a datetime's whole day), ">=" (_from) or "<=" (_to)
 
 
 @dataclass
@@ -60,13 +71,13 @@ class ListQuery:
 
 def field_parameters(entity: Entity) -> dict[str, FieldParam]:
     """Query parameter -> the filter it applies: equality for every property, a ``_from`` /
-    ``_to`` range for dates and datetimes (a datetime has no equality: it is never exact)."""
+    ``_to`` range for dates and datetimes, and for a datetime a whole day (``?creation=2026-09-23``)
+    instead of an equality that would never be exact."""
     params: dict[str, FieldParam] = {}
     for fieldname, prop in entity.props.items():
         if prop.fieldtype in UNFILTERABLE:
             continue
-        if prop.fieldtype != "Datetime":
-            params[prop.public] = FieldParam(fieldname, prop, "=")
+        params[prop.public] = FieldParam(fieldname, prop, "day" if prop.fieldtype == "Datetime" else "=")
         if prop.fieldtype in ("Date", "Datetime") and not prop.lookup:
             params[f"{prop.public}_from"] = FieldParam(fieldname, prop, ">=")
             params[f"{prop.public}_to"] = FieldParam(fieldname, prop, "<=")
@@ -138,12 +149,16 @@ def _param_value(name: str, param: FieldParam, raw: str):
         if fieldtype in FLOAT_TYPES:
             return float(raw)
         if fieldtype == "Date":
-            if not DATE_RE.fullmatch(raw):
+            if not (day := _iso_date(raw)):
                 raise ValueError
-            return raw
+            return day
         if fieldtype == "Datetime":
-            if DATE_RE.fullmatch(raw):  # a whole day: from its start / to its end
-                return f"{raw} 00:00:00" if param.operator == ">=" else f"{raw} 23:59:59.999999"
+            day = _iso_date(raw)
+            if param.operator == "day":  # the whole day of a date, or of a datetime's own date
+                day = day or to_system_datetime(raw)[:10]
+                return (f"{day} 00:00:00", f"{day} 23:59:59.999999")
+            if day:  # a date alone: from its start / to its end
+                return f"{day} 00:00:00" if param.operator == ">=" else f"{day} 23:59:59.999999"
             return to_system_datetime(raw)
     except (ValueError, ODataError):
         raise ODataError(f"Invalid value for {name}: {raw!r}")
@@ -159,7 +174,10 @@ def _field_filters(entity: Entity, args, params: dict[str, FieldParam]) -> list:
             if not values:
                 raise ODataError(f"Invalid value for {name}: {raw!r}")
             converted = [_param_value(name, param, v) for v in values]
-            if param.prop.lookup:
+            if param.operator == "day":
+                start, end = converted[0]
+                out += [[entity.doctype, param.fieldname, ">=", start], [entity.doctype, param.fieldname, "<=", end]]
+            elif param.prop.lookup:
                 from fraxis.gateway import lookup
 
                 out.append(lookup.in_filter(entity, param.fieldname, lookup.to_internal(param.prop, converted)))

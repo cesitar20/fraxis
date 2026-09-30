@@ -102,10 +102,13 @@ class FraxisSettings(Document):
             self.validate_lookup(row)
             public_by_doctype.setdefault(row.ref_doctype, {})[row.fieldname] = row.public_name or row.fieldname
 
-        # Clients tell fields apart by public name: two fields of a DocType cannot share one.
+        # Clients tell fields apart by public name: two fields of a DocType cannot share one. An
+        # excluded field is never seen, so its name is free (creation can take call_date's).
         for doctype, mapped in public_by_doctype.items():
             owner = {}
             for f in model.publishable_fields(doctype, include_name=True):
+                if (doctype, f["fieldname"]) in excluded:
+                    continue
                 public = mapped.get(f["fieldname"], f["fieldname"])
                 if owner.setdefault(public, f["fieldname"]) != f["fieldname"]:
                     frappe.throw(
