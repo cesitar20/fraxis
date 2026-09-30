@@ -17,6 +17,8 @@ Field filters, one parameter per property (see :func:`field_parameters`)::
 OData options, for what field filters cannot express::
 
     $select=a,b   $filter=<expr>   $orderby=a desc,b   $top=50   $skip=100   $count=true
+
+Lists come newest first (``creation desc``) unless ``$orderby`` says otherwise.
 """
 
 import re
@@ -160,7 +162,9 @@ def select(entity: Entity, raw: str | None, allow_collections: bool = False) -> 
 
 def _order_by(entity: Entity, raw: str | None) -> str:
     if not raw:
-        return f"`tab{entity.doctype}`.`modified` desc"
+        # creation, not modified: routes are usually scoped by an indexed field such as the bot
+        # (agent, creation), so the newest rows come straight from that index, without a filesort.
+        return f"`tab{entity.doctype}`.`creation` desc"
     parts = []
     for item in raw.split(","):
         bits = item.split()
