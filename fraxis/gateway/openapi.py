@@ -172,6 +172,10 @@ def _filter_parameters(entity: model.Entity) -> list[dict]:
     for name, param in query.field_parameters(entity).items():
         label = _label(param.prop)
         schema = _type_schema(param.prop)
+        # One paragraph each (field description, how to filter, values, example): Scalar shows the
+        # parameter's description next to its request example, and it also travels in the document.
+        paragraphs = [_(param.prop.description)] if param.prop.description else []
+        choices = None
         if param.operator == ">=":
             text = _("{0}: from this value (included)").format(label)
         elif param.operator == "<=":
@@ -180,14 +184,17 @@ def _filter_parameters(entity: model.Entity) -> list[dict]:
             text = _("{0}: true or false").format(label)
         else:
             text = _("{0}: equals; separate several values with commas to match any of them").format(label)
-            if choices := schema.pop("enum", None):
-                # Named in the text, not as an enum: Scalar would put the first choice in every request.
-                text += " " + _("Values: {0}").format(", ".join(f"`{c}`" for c in choices))
+            choices = schema.pop("enum", None)
             schema["type"] = "string"
+        paragraphs.append(text)
+        if choices:
+            # Named in the text, not as an enum: Scalar would put the first choice in every request.
+            paragraphs.append(_("Values: {0}").format(", ".join(f"`{c}`" for c in choices)))
         if (example := _param_example(param)) is not None:
-            # In the text, not as ``example``: Scalar would copy it into every generated request.
-            text += " " + _("Example: {0}").format(f"`{example}`")
-        out.append({"name": name, "in": "query", "description": text, "schema": schema})
+            # In the text, not as ``example``: every standard form (example, examples, schema example)
+            # makes Scalar copy it into the generated curl.
+            paragraphs.append(_("Example: {0}").format(f"`{example}`"))
+        out.append({"name": name, "in": "query", "description": "\n\n".join(paragraphs), "schema": schema})
     return out
 
 
