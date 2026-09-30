@@ -57,7 +57,8 @@ class FraxisSettings(Document):
 
     def validate_routes(self):
         exposed = config.compute_exposed(self)
-        seen, doctype_of_path = set(), {}
+        seen, doctype_of_path, doctype_of_public = set(), {}, {}
+        public_of_path = self.public_names_by_path()
         for row in self.routes:
             if row.ref_doctype in config.NEVER_EXPOSED:
                 frappe.throw(_("Route row {0}: {1} can never be served by the gateway").format(row.idx, row.ref_doctype))
@@ -69,7 +70,7 @@ class FraxisSettings(Document):
             if error:
                 frappe.throw(_("Route row {0}: {1}").format(row.idx, error))
             verb = row.http_method or "GET"
-            path = f"/{row.sub_route}/{row.sub_category}" + (f"/{row.path}" if row.path else "")
+            path = self.row_path(row)
             if (path, verb) in seen:
                 frappe.throw(_("Route row {0}: {1} {2} is defined twice").format(row.idx, verb, path))
             seen.add((path, verb))
@@ -82,6 +83,7 @@ class FraxisSettings(Document):
 
             row.route = config.route_label(self.base_path, row.sub_route, row.sub_category, row.path, verb)
             row.exposed = int(row.ref_doctype in exposed)
+            self.set_api_names(row, verb, path, public_of_path, doctype_of_public)
 
         hidden = sorted({row.ref_doctype for row in self.routes if not row.exposed})
         if hidden:
@@ -92,6 +94,41 @@ class FraxisSettings(Document):
                 title=_("Routes not exposed"),
                 indicator="orange",
             )
+
+    @staticmethod
+    def row_path(row) -> str:
+        sub_path = config.normalise_sub_path(row.get("path"))[0]
+        return f"/{row.sub_route}/{row.sub_category}" + (f"/{sub_path}" if sub_path else "")
+
+    def public_names_by_path(self) -> dict[str, str]:
+        """The Public Name typed on any row of a path names every row of that path."""
+        names: dict[str, str] = {}
+        for row in self.routes:
+            name = (row.get("public_name") or "").strip()
+            if name and names.setdefault(self.row_path(row), name) != name:
+                frappe.throw(
+                    _("Route row {0}: {1} is already called {2}; one path has one Public Name").format(
+                        row.idx, self.row_path(row), names[self.row_path(row)]
+                    )
+                )
+        return names
+
+    @staticmethod
+    def set_api_names(row, verb: str, path: str, public_of_path: dict, doctype_of_public: dict) -> None:
+        """Fill the row's empty API names with their defaults; one Public Name names one DocType."""
+        row.public_name = public_of_path.get(path) or row.ref_doctype
+        if doctype_of_public.setdefault(row.public_name, row.ref_doctype) != row.ref_doctype:
+            frappe.throw(
+                _("Route row {0}: Public Name {1} already names {2}").format(
+                    row.idx, row.public_name, doctype_of_public[row.public_name]
+                )
+            )
+        defaults = config.default_operation_names(verb, row.public_name)
+        for fieldname, _verb in (item for items in config.OPERATION_NAMES.values() for item in items):
+            if fieldname not in defaults:
+                row.set(fieldname, None)  # names of another HTTP method: hidden in the form, not published
+            elif not (row.get(fieldname) or "").strip():
+                row.set(fieldname, defaults[fieldname])
 
     def on_update(self):
         # Exposure set and the generated OpenAPI document depend on these settings.

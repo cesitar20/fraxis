@@ -141,6 +141,20 @@ def excluded_fields() -> dict[str, set[str]]:
 
 # --- routes ------------------------------------------------------------------------------
 
+# HTTP method -> (row field, default verb) of each operation the row publishes: GET answers the
+# collection and one document, the other methods one operation each.
+OPERATION_NAMES = {
+    "GET": (("list_name", "List"), ("get_name", "Get one")),
+    "POST": (("create_name", "Create"),),
+    "PATCH": (("update_name", "Update"),),
+    "DELETE": (("delete_name", "Delete"),),
+}
+
+
+def default_operation_names(http_method: str, public_name: str) -> dict[str, str]:
+    return {fieldname: f"{verb} {public_name}" for fieldname, verb in OPERATION_NAMES.get(http_method, ())}
+
+
 @dataclass
 class RouteSpec:
     """Every row of ``Fraxis Settings > Routes`` sharing one ``/<sub_route>/<sub_category>[/<path>]``."""
@@ -149,7 +163,9 @@ class RouteSpec:
     sub_category: str
     doctype: str
     sub_path: str = ""  # the row's optional Path: extra segments after the Sub Category
-    verbs: dict[str, str] = field(default_factory=dict)  # HTTP method -> description
+    public_name: str = ""  # what the docs call the resource instead of the DocType
+    # HTTP method -> {"description": str, "names": {row field: operation name}}
+    verbs: dict[str, dict] = field(default_factory=dict)
 
     @property
     def segments(self) -> tuple[str, ...]:
@@ -183,10 +199,14 @@ def routes() -> dict[tuple[str, ...], RouteSpec]:
         sub_path, error = normalise_sub_path(row.get("path"))
         if error or not (row.sub_route and row.sub_category and row.ref_doctype):
             continue
-        spec = RouteSpec(row.sub_route, row.sub_category, row.ref_doctype, sub_path)
+        public_name = row.get("public_name") or row.ref_doctype
+        spec = RouteSpec(row.sub_route, row.sub_category, row.ref_doctype, sub_path, public_name)
         spec = out.setdefault(spec.segments, spec)
         if spec.doctype == row.ref_doctype:
-            spec.verbs[row.http_method or "GET"] = row.description or ""
+            verb = row.http_method or "GET"
+            names = default_operation_names(verb, spec.public_name)
+            names.update({f: row.get(f) for f in names if row.get(f)})
+            spec.verbs[verb] = {"description": row.description or "", "names": names}
     return out
 
 

@@ -15,6 +15,33 @@ function fraxis_set_route(frm, cdt, cdn) {
 	frappe.model.set_value(cdt, cdn, "route", fraxis_route_label(frm, row));
 }
 
+// API Names of a route row (server: config.OPERATION_NAMES / default_operation_names).
+const FRAXIS_OPERATION_NAMES = {
+	GET: [
+		["list_name", "List"],
+		["get_name", "Get one"],
+	],
+	POST: [["create_name", "Create"]],
+	PATCH: [["update_name", "Update"]],
+	DELETE: [["delete_name", "Delete"]],
+};
+const fraxis_last_public = {};
+
+// Fill empty names, and names still carrying the previous default, from the Public Name.
+function fraxis_set_names(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+	const public_name = (row.public_name || "").trim() || row.ref_doctype;
+	const previous = fraxis_last_public[cdn];
+	fraxis_last_public[cdn] = public_name;
+	if (!public_name) return;
+	(FRAXIS_OPERATION_NAMES[row.http_method] || []).forEach(([fieldname, verb]) => {
+		const current = row[fieldname];
+		if (!current || (previous && current === `${verb} ${previous}`)) {
+			frappe.model.set_value(cdt, cdn, fieldname, `${verb} ${public_name}`);
+		}
+	});
+}
+
 // Excluded Fields > Field lists what the row's DocType can return (server: model.publishable_fields).
 const fraxis_fields_cache = {};
 
@@ -49,6 +76,9 @@ function fraxis_set_field_options(frm, cdn) {
 frappe.ui.form.on("Fraxis Settings", {
 	refresh(frm) {
 		(frm.doc.excluded_fields || []).forEach((row) => fraxis_set_field_options(frm, row.name));
+		(frm.doc.routes || []).forEach((row) => {
+			fraxis_last_public[row.name] = (row.public_name || "").trim() || row.ref_doctype;
+		});
 	},
 	base_path(frm) {
 		(frm.doc.routes || []).forEach((row) => fraxis_set_route(frm, row.doctype, row.name));
@@ -56,10 +86,15 @@ frappe.ui.form.on("Fraxis Settings", {
 });
 
 frappe.ui.form.on("Fraxis Route", {
-	http_method: fraxis_set_route,
+	http_method(frm, cdt, cdn) {
+		fraxis_set_route(frm, cdt, cdn);
+		fraxis_set_names(frm, cdt, cdn);
+	},
 	sub_route: fraxis_set_route,
 	sub_category: fraxis_set_route,
 	path: fraxis_set_route,
+	ref_doctype: fraxis_set_names,
+	public_name: fraxis_set_names,
 });
 
 frappe.ui.form.on("Fraxis Excluded Field", {
