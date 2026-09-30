@@ -1,0 +1,85 @@
+"Invalid query option, property or value","Opción de consulta, propiedad o valor no válido"
+"Missing, invalid, expired or revoked access token","Token de acceso ausente, no válido, vencido o revocado"
+Your access does not allow it,Tu acceso no lo permite
+"No such record, or outside your access",El registro no existe o está fuera de tu acceso
+HTTP method not available on this route,Método HTTP no disponible en esta ruta
+Duplicate record,Registro duplicado
+If-Match does not match the current ETag,If-Match no coincide con el ETag actual
+{0}: from this value (included),{0}: desde este valor (incluido)
+{0}: up to this value (included); a date alone includes the whole day,{0}: hasta este valor (incluido); una fecha sola incluye el día completo
+{0}: true or false,{0}: true o false
+{0}: equals; separate several values with commas to match any of them,{0}: igual a; separa varios valores con comas para coincidir con cualquiera
+"Properties to return, separated by commas, e.g. `{0}`","Propiedades a devolver, separadas por comas, p. ej. `{0}`"
+"Sort, e.g. `modified desc`; default `modified desc`","Orden, p. ej. `modified desc`; por defecto `modified desc`"
+Page size (default {0}),Tamaño de página (por defecto {0})
+Records to skip,Registros a omitir
+Add `@odata.count`: total matching records,Agrega `@odata.count`: total de registros que coinciden
+Record,Registro
+ETag of a previous read (`@odata.etag`); 412 if the record changed since,ETag de una lectura anterior (`@odata.etag`); 412 si el registro cambió desde entonces
+{0} ID,ID de {0}
+Page of records,Página de registros
+Only with $count=true,Solo con $count=true
+Next page; absent on the last one,Página siguiente; no aparece en la última
+"Properties to return, separated by commas (child tables allowed)","Propiedades a devolver, separadas por comas (se permiten tablas hijas)"
+Created; `Location` has its URL,Creado; `Location` tiene su URL
+Only the properties to change,Solo las propiedades a cambiar
+Deleted,Eliminado
+Get an access token,Obtener un token de acceso
+Access and refresh token,Token de acceso y de renovación
+Too many token requests (30 per minute),Demasiadas solicitudes de token (30 por minuto)
+Refresh the access token,Renovar el token de acceso
+New access and refresh token,Nuevo token de acceso y de renovación
+Too many requests (60 per minute),Demasiadas solicitudes (60 por minuto)
+Revoke (log out),Revocar (cerrar sesión)
+Session ended,Sesión cerrada
+How to authenticate,Cómo autenticarse
+Your **API Key** and **API Secret** are provided to you together with your access to this API.,Tu **API Key** y tu **API Secret** se te entregan junto con tu acceso a esta API.
+**1. Get the tokens** with your API Key and API Secret:,**1. Obtén los tokens** con tu API Key y tu API Secret:
+**2. Send it on every request**; no other credential is accepted by the routes:,**2. Envíalo en cada petición**; las rutas no aceptan ninguna otra credencial:
+"When the refresh token itself expires (after {0} seconds), repeat step 1.","Cuando el token de renovación venza (a los {0} segundos), repite el paso 1."
+**4. Log out**: the refresh token and every access token of that login stop working:,**4. Cierra la sesión**: el token de renovación y todos los tokens de acceso de ese inicio de sesión dejan de funcionar:
+"If your API Key and API Secret are replaced or your access is disabled, every token stops working at once.","Si tu API Key y tu API Secret se reemplazan o tu acceso se desactiva, todos los tokens dejan de funcionar al instante."
+Filters,Filtros
+"For anything else use the OData options `$filter`, `$select`, `$orderby`, `$top`, `$skip` and `$count`. Pages carry `@odata.nextLink` until the last one.","Para todo lo demás usa las opciones OData `$filter`, `$select`, `$orderby`, `$top`, `$skip` y `$count`. Las páginas traen `@odata.nextLink` hasta la última."
+Errors are answered as {0}.,Los errores se responden como {0}.
+API Key provided to you,API Key que se te entregó
+API Secret provided to you,API Secret que se te entregó
+API Key,API Key
+API Secret,API Secret
+Seconds until the access token expires,Segundos hasta que venza el token de acceso
+Send to /auth/refresh; valid once,Envíalo a /auth/refresh; vale una sola vez
+Seconds until the refresh token expires,Segundos hasta que venza el token de renovación
+Refresh token (or access token) of the session to end,Token de renovación (o de acceso) de la sesión a cerrar
+`access_token` returned by POST /auth/token.,`access_token` devuelto por POST /auth/token.
+"Client ID = API Key, Client Secret = API Secret.","Client ID = API Key, Client Secret = API Secret."
+Access tokens,Tokens de acceso
+"Get, refresh and revoke the tokens every route needs.","Obtén, renueva y revoca los tokens que necesita cada ruta."
+Authentication,Autenticación
+Not found,No encontrado
+{0} is not allowed on this route,{0} no está permitido en esta ruta
+No route {0},No existe la ruta {0}
+Authentication required,Se requiere autenticación
+grant_type must be client_credentials or refresh_token,grant_type debe ser client_credentials o refresh_token
+Log in to read the API documentation,Inicia sesión para leer la documentación del API
+API Documentation,Documentación del API
+Language,Idioma
+Stats,Estadísticas
+Assistants,Asistentes
+Numbers,Números
+ID,ID
+Created On,Creado el
+Last Updated On,Actualizado el
+Document Status,Estado del documento
+Row Number,Número de fila
+api_key and api_secret are required,api_key y api_secret son obligatorios
+Invalid api_key or api_secret,api_key o api_secret no válidos
+API access is not enabled for this account,El acceso al API no está habilitado para esta cuenta
+Refresh token is no longer valid,El token de renovación ya no es válido
+"Advanced OData filter: `eq ne gt ge lt le`, `in (...)`, `contains/startswith/endswith(field,'text')`, `and`, `or`, `not`, parentheses; shape `a and b and (c or d)`. Strings in single quotes, datetimes as ISO 8601, e.g. `modified ge 2026-09-01T00:00:00Z`","Filtro OData avanzado: `eq ne gt ge lt le`, `in (...)`, `contains/startswith/endswith(field,'text')`, `and`, `or`, `not`, paréntesis; forma `a and b and (c or d)`. Textos entre comillas simples, fechas y horas en ISO 8601, p. ej. `modified ge 2026-09-01T00:00:00Z`"
+"Send the API Key and API Secret provided to you. Every other route only accepts the returned `access_token` as `Authorization: Bearer <access_token>`. Keep the `refresh_token` to renew it with **Refresh the access token**. Also accepted as OAuth2 client credentials (`grant_type=client_credentials` with `client_id` / `client_secret`, in the form body or as HTTP Basic) and `grant_type=refresh_token`.","Envía la API Key y la API Secret que se te entregaron. Todas las demás rutas solo aceptan el `access_token` devuelto como `Authorization: Bearer <access_token>`. Guarda el `refresh_token` para renovarlo con **Renovar el token de acceso**. También se acepta como credenciales de cliente OAuth2 (`grant_type=client_credentials` con `client_id` / `client_secret`, en el cuerpo del formulario o como HTTP Basic) y `grant_type=refresh_token`."
+"Exchange the `refresh_token` for a new access token **and a new refresh token**; the one sent stops working (rotation). Sending an already used refresh token again ends the whole session. When the refresh token expires, request new tokens with the API Key and API Secret.","Cambia el `refresh_token` por un nuevo token de acceso **y un nuevo token de renovación**; el enviado deja de funcionar (rotación). Enviar otra vez un token de renovación ya usado cierra toda la sesión. Cuando el token de renovación venza, pide tokens nuevos con la API Key y la API Secret."
+Ends the session of a refresh token or an access token: the refresh token and every access token issued from the same login stop working at once. Answers 200 even for unknown tokens.,Cierra la sesión de un token de renovación o de acceso: el token de renovación y todos los tokens de acceso emitidos en el mismo inicio de sesión dejan de funcionar al instante. Responde 200 incluso con tokens desconocidos.
+**3. Renew it** when a route answers `401 Access token expired` (after {0} seconds). The answer is a new access token **and a new refresh token**; the old refresh token stops working:,**3. Renuévalo** cuando una ruta responda `401 Access token expired` (a los {0} segundos). La respuesta trae un nuevo token de acceso **y un nuevo token de renovación**; el anterior deja de funcionar:
+"To try the routes from this page, paste your access token in **Authentication** (Bearer Token), or choose *OAuth2 client credentials* with Client ID = API Key and Client Secret = API Secret and press *Authorize*.","Para probar las rutas desde esta página, pega tu token de acceso en **Authentication** (Bearer Token), o elige *OAuth2 client credentials* con Client ID = API Key y Client Secret = API Secret y pulsa *Authorize*."
+"Lists are filtered with one query parameter per field: `?status=Active`, several values separated by commas (`?status=Active,Paused`), and `_from` / `_to` on dates (`?creation_from=2026-09-01&creation_to=2026-09-30`). Each list shows the parameters it accepts.","Las listas se filtran con un parámetro de consulta por campo: `?status=Active`, varios valores separados por comas (`?status=Active,Paused`), y `_from` / `_to` en fechas (`?creation_from=2026-09-01&creation_to=2026-09-30`). Cada lista muestra los parámetros que acepta."
+"Values: {0}","Valores: {0}"

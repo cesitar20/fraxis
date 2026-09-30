@@ -17,6 +17,7 @@ import json
 import frappe
 from frappe import _
 from frappe.rate_limiter import rate_limit
+from frappe.utils import escape_html
 from werkzeug.wrappers import Response
 
 from fraxis.gateway import auth, config, documents, openapi, router
@@ -120,16 +121,27 @@ def _docs_allowed() -> bool:
     return frappe.session.user != "Guest" or bool((config.settings() or frappe._dict()).public_docs)
 
 
+def _docs_language(lang: str | None) -> str:
+    """The requested docs language when offered in Fraxis Settings, else the first one offered."""
+    languages = config.docs_languages()
+    return lang if lang in languages else languages[0]
+
+
 @frappe.whitelist(allow_guest=True, methods=["GET"])
-def openapi_spec():
+def openapi_spec(lang: str | None = None):
     if router.current() is None:
         return serialize.error_response(404, "NotFound", _("Not found"))
     if not _docs_allowed():
         return serialize.error_response(403, "Forbidden", _("Log in to read the API documentation"))
-    cache_key = f"{config.CACHE_PREFIX}openapi:{router.gateway_url()}"
+    lang = _docs_language(lang)
+    cache_key = f"{config.CACHE_PREFIX}openapi:{router.gateway_url()}:{lang}"
     spec = frappe.cache.get_value(cache_key)
     if spec is None:
-        spec = openapi.build()
+        previous, frappe.local.lang = frappe.local.lang, lang  # every _() of the document
+        try:
+            spec = openapi.build()
+        finally:
+            frappe.local.lang = previous
         frappe.cache.set_value(cache_key, spec, expires_in_sec=300)
     return serialize.json_response(spec)
 
@@ -151,11 +163,15 @@ SCALAR_HIDDEN_CLIENTS = {
 # gateway request except the spec itself without cookies. (Kept here: the served page never
 # names the platform.)
 _PAGE = """<!doctype html>
-<html lang="en">
+<html lang="{lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
+<style>
+#docs-language {{ position: fixed; top: 12px; right: 16px; z-index: 1000; font: 13px system-ui, sans-serif;
+  padding: 4px 8px; border-radius: 6px; border: 1px solid #c9ccd1; background: #fff; color: #1f2328; }}
+</style>
 <script>
 (function () {{
   const base = {base_json}, spec = base + "/openapi.json";
@@ -172,15 +188,43 @@ _PAGE = """<!doctype html>
 </script>
 </head>
 <body style="margin:0">
+{language_picker}
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1"></script>
 <script>Scalar.createApiReference("#app", {config_json})</script>
 </body>
 </html>"""
 
+# Hidden from the page: the button that opens Scalar's hosted client and the "Powered by" link.
+SCALAR_CSS = ".open-api-client-button, a[href*='utm_source=powered-by'] { display: none !important; }"
+
+
+def _language_picker(current: str) -> str:
+    """A select that reloads the docs in another language (only when more than one is offered)."""
+    languages = config.docs_languages()
+    if len(languages) < 2:
+        return ""
+    names = dict(frappe.get_all("Language", filters={"name": ["in", languages]}, fields=["name", "language_name"],
+                                as_list=True))
+    options = "".join(
+        f'<option value="{escape_html(code)}"{" selected" if code == current else ""}>'
+        f"{escape_html(names.get(code) or code)}</option>"
+        for code in languages
+    )
+    return (
+        f'<select id="docs-language" aria-label="{escape_html(_("Language"))}" '
+        'onchange="location.search = \'?lang=\' + encodeURIComponent(this.value)">'
+        f"{options}</select>"
+    )
+
+
+def _json_for_script(value) -> str:
+    """JSON safe inside <script>: no "</script>" can close it early."""
+    return json.dumps(value).replace("<", "\\u003c")
+
 
 @frappe.whitelist(allow_guest=True, methods=["GET"])
-def docs():
+def docs(lang: str | None = None):
     if router.current() is None:
         return serialize.error_response(404, "NotFound", _("Not found"))
     if not _docs_allowed():
@@ -189,14 +233,29 @@ def docs():
         from werkzeug.utils import redirect
 
         return redirect(f"/login?redirect-to={quote(router.original_path())}")
+    lang = _docs_language(lang)
     scalar_config = {
-        "url": router.gateway_path("/openapi.json"),
+        "url": router.gateway_path("/openapi.json") + f"?lang={lang}",
         "withDefaultFonts": False,
         "persistAuth": True,
-        "authentication": {"preferredSecurityScheme": "clientCredentials"},
+        "hideClientButton": True,
+        "customCss": SCALAR_CSS,
+        # Generated requests show "Authorization: Bearer <access_token>", as the guide does.
+        "authentication": {
+            "preferredSecurityScheme": "bearerAuth",
+            "securitySchemes": {"bearerAuth": {"token": "<access_token>"}},
+        },
         "hiddenClients": SCALAR_HIDDEN_CLIENTS,
     }
-    page = _PAGE.format(
-        title=openapi.DOCS_TITLE, base_json=json.dumps(router.gateway_path()), config_json=json.dumps(scalar_config)
-    )
+    previous, frappe.local.lang = frappe.local.lang, lang
+    try:
+        page = _PAGE.format(
+            lang=escape_html(lang),
+            title=escape_html(_(openapi.DOCS_TITLE)),
+            base_json=_json_for_script(router.gateway_path()),
+            language_picker=_language_picker(lang),
+            config_json=_json_for_script(scalar_config),
+        )
+    finally:
+        frappe.local.lang = previous
     return Response(page, mimetype="text/html")
