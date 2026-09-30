@@ -143,33 +143,48 @@ def excluded_fields() -> dict[str, set[str]]:
 
 @dataclass
 class RouteSpec:
-    """Every row of ``Fraxis Settings > Routes`` sharing one ``/<sub_route>/<sub_category>``."""
+    """Every row of ``Fraxis Settings > Routes`` sharing one ``/<sub_route>/<sub_category>[/<path>]``."""
 
     sub_route: str
     sub_category: str
     doctype: str
+    sub_path: str = ""  # the row's optional Path: extra segments after the Sub Category
     verbs: dict[str, str] = field(default_factory=dict)  # HTTP method -> description
 
     @property
+    def segments(self) -> tuple[str, ...]:
+        return (self.sub_route, self.sub_category, *filter(None, self.sub_path.split("/")))
+
+    @property
     def path(self) -> str:
-        return f"/{self.sub_route}/{self.sub_category}"
+        return "/" + "/".join(self.segments)
 
 
-def route_label(base: str, sub_route: str, sub_category: str, http_method: str) -> str:
+def normalise_sub_path(raw) -> tuple[str, str | None]:
+    """``(path, error)`` for a route's optional Path: ``segment[/segment]`` without outer slashes."""
+    path = str(raw or "").strip().strip("/")
+    if path and not re.fullmatch(r"[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*", path):
+        return path, _("Path {0} may only contain letters, digits, '.', '_', '~', '-' and '/'").format(path)
+    return path, None
+
+
+def route_label(base: str, sub_route: str, sub_category: str, sub_path: str, http_method: str) -> str:
     """What the Route column shows: the collection path, or ``/{name}`` for item-only verbs."""
+    extra = f"/{sub_path}" if sub_path else ""
     suffix = "/{name}" if http_method in ("PATCH", "DELETE") else ""
-    return f"{base}/{sub_route}/{sub_category}{suffix}"
+    return f"{base}/{sub_route}/{sub_category}{extra}{suffix}"
 
 
-def routes() -> dict[tuple[str, str], RouteSpec]:
-    """``(sub_route, sub_category)`` -> RouteSpec, in the order of the settings table."""
-    out: dict[tuple[str, str], RouteSpec] = {}
+def routes() -> dict[tuple[str, ...], RouteSpec]:
+    """Path segments -> RouteSpec, in the order of the settings table."""
+    out: dict[tuple[str, ...], RouteSpec] = {}
     doc = settings()
     for row in (doc.routes if doc else None) or []:
-        if not (row.sub_route and row.sub_category and row.ref_doctype):
+        sub_path, error = normalise_sub_path(row.get("path"))
+        if error or not (row.sub_route and row.sub_category and row.ref_doctype):
             continue
-        key = (row.sub_route, row.sub_category)
-        spec = out.setdefault(key, RouteSpec(row.sub_route, row.sub_category, row.ref_doctype))
+        spec = RouteSpec(row.sub_route, row.sub_category, row.ref_doctype, sub_path)
+        spec = out.setdefault(spec.segments, spec)
         if spec.doctype == row.ref_doctype:
             spec.verbs[row.http_method or "GET"] = row.description or ""
     return out

@@ -15,6 +15,8 @@ OpenAPI 3.0 document rendered by Scalar at ``<base_path>/docs``.
   never appear.
 """
 
+import re
+
 import frappe
 
 from fraxis import __version__
@@ -133,7 +135,7 @@ def _tag(spec: config.RouteSpec) -> str:
 def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tuple[dict, dict]:
     tag = [_tag(spec)]
     doctype = entity.doctype
-    op_id = f"{spec.sub_route}_{spec.sub_category}".replace("-", "_")
+    op_id = re.sub(r"[^A-Za-z0-9_]", "_", "_".join(spec.segments))
     one = {"description": "Document", "headers": {"ETag": {"schema": {"type": "string"}}},
            "content": {"application/json": {"schema": _ref(schema)}}}
     body = {"required": True, "content": {"application/json": {"schema": _ref(f"{schema}Input")}}}

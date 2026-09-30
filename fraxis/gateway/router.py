@@ -34,7 +34,7 @@ STATIC = {"/auth/token": "token", "/auth/refresh": "refresh", "/auth/revoke": "r
 class Route:
     kind: str  # token | refresh | revoke | docs | spec | data | error
     spec: config.RouteSpec | None = None
-    name: str | None = None  # document name on /<sub_route>/<sub_category>/<name>
+    name: str | None = None  # document name after the route's path
     status: int = 200
     allowed: tuple[str, ...] = ()
 
@@ -64,12 +64,18 @@ def resolve(sub: str, verb: str) -> Route:
     if kind := STATIC.get(sub):
         return Route(kind)
 
-    parts = sub.strip("/").split("/", 2)
-    spec = config.routes().get(tuple(parts[:2])) if len(parts) >= 2 else None
-    if not spec or spec.doctype not in config.exposed_doctypes():
+    # The longest configured route that prefixes the path wins; what is left is the document name.
+    parts = tuple(sub.strip("/").split("/"))
+    exposed = config.exposed_doctypes()
+    spec = max(
+        (s for s in config.routes().values() if parts[: len(s.segments)] == s.segments and s.doctype in exposed),
+        key=lambda s: len(s.segments),
+        default=None,
+    )
+    if not spec:
         return Route("error", status=404)
 
-    name = parts[2] if len(parts) == 3 else None
+    name = "/".join(parts[len(spec.segments) :]) or None
     allowed = tuple(v for v in (ITEM_VERBS if name else COLLECTION_VERBS) if v in spec.verbs)
     if not allowed:
         return Route("error", status=404)
