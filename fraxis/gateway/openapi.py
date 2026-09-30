@@ -85,22 +85,22 @@ def _prop_schema(p: model.Prop) -> dict:
 
 
 def _object(props: dict[str, model.Prop], collections: dict[str, str] | None = None, write: bool = False) -> dict:
+    """``collections``: child table fieldname -> schema name of its rows."""
     properties = {n: _prop_schema(p) for n, p in props.items() if not (write and p.read_only)}
-    for fieldname, child in (collections or {}).items():
-        properties[fieldname] = {"type": "array", "items": _ref(model.schema_name(child))}
+    for fieldname, child_schema in (collections or {}).items():
+        properties[fieldname] = {"type": "array", "items": _ref(child_schema)}
     required = [n for n, p in props.items() if p.required and n in properties]
     return {"type": "object", "properties": properties, **({"required": required} if required else {})}
 
 
-def _entity_schemas(entity: model.Entity, schemas: dict) -> str:
-    name = model.schema_name(entity.doctype)
-    schemas[name] = {
-        **_object(entity.props, entity.collections),
-        "description": entity.description or f"Document of {entity.doctype}",
-    }
-    schemas[f"{name}Input"] = _object(entity.props, entity.collections, write=True)
-    for fieldname, child in entity.collections.items():
-        schemas.setdefault(model.schema_name(child), _object(entity.child_props(fieldname)))
+def _entity_schemas(entity: model.Entity, public_name: str, schemas: dict) -> str:
+    """Schemas named after the route's Public Name, never after the DocType (child rows too)."""
+    name = model.schema_name(public_name)
+    children = {fieldname: name + model.schema_name(fieldname) for fieldname in entity.collections}
+    schemas[name] = {**_object(entity.props, children), "description": public_name}
+    schemas[f"{name}Input"] = _object(entity.props, children, write=True)
+    for fieldname, child_schema in children.items():
+        schemas.setdefault(child_schema, _object(entity.child_props(fieldname)))
     return name
 
 
@@ -134,24 +134,25 @@ def _tag(spec: config.RouteSpec) -> str:
 
 def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tuple[dict, dict]:
     tag = [_tag(spec)]
-    doctype = entity.doctype
+    public_name = spec.public_name
     op_id = re.sub(r"[^A-Za-z0-9_]", "_", "_".join(spec.segments))
     one = {"description": "Document", "headers": {"ETag": {"schema": {"type": "string"}}},
            "content": {"application/json": {"schema": _ref(schema)}}}
     body = {"required": True, "content": {"application/json": {"schema": _ref(f"{schema}Input")}}}
     if_match = {"name": "If-Match", "in": "header", "schema": {"type": "string"},
                 "description": "ETag of a previous read (`@odata.etag`); 412 if the document changed since"}
-    name_param = {"name": "name", "in": "path", "required": True, "description": f"{doctype} name",
+    name_param = {"name": "name", "in": "path", "required": True, "description": f"{public_name} ID",
                   "schema": {"type": "string"}}
 
-    def summary(verb: str, default: str) -> dict:
-        text = spec.verbs.get(verb) or ""
-        return {"summary": text.split("\n")[0][:120] or default, **({"description": text} if text else {})}
+    def summary(verb: str, fieldname: str) -> dict:
+        """Operation name from the route row (Fraxis Route > API Names); its description below it."""
+        text = spec.verbs[verb]["description"]
+        return {"summary": spec.verbs[verb]["names"][fieldname], **({"description": text} if text else {})}
 
     collection, item = {}, {}
     if "GET" in spec.verbs:
         collection["get"] = {
-            "tags": tag, "operationId": f"{op_id}_list", **summary("GET", f"List {doctype}"),
+            "tags": tag, "operationId": f"{op_id}_list", **summary("GET", "list_name"),
             "parameters": _list_parameters(entity),
             "responses": {
                 "200": {"description": "Page of documents", "content": {"application/json": {"schema": {
@@ -167,21 +168,21 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
             },
         }
         item["get"] = {
-            "tags": tag, "operationId": f"{op_id}_get", "summary": f"Get one {doctype}",
+            "tags": tag, "operationId": f"{op_id}_get", **summary("GET", "get_name"),
             "parameters": [{"name": "$select", "in": "query", "schema": {"type": "string"},
                             "description": "Comma-separated properties (child tables allowed)"}],
             "responses": {"200": one, **_errors("400", "401", "403", "404")},
         }
     if "POST" in spec.verbs:
         collection["post"] = {
-            "tags": tag, "operationId": f"{op_id}_create", **summary("POST", f"Create {doctype}"),
+            "tags": tag, "operationId": f"{op_id}_create", **summary("POST", "create_name"),
             "requestBody": body,
             "responses": {"201": {**one, "description": "Created; `Location` has its URL"},
                           **_errors("400", "401", "403", "409")},
         }
     if "PATCH" in spec.verbs:
         item["patch"] = {
-            "tags": tag, "operationId": f"{op_id}_update", **summary("PATCH", f"Update {doctype} (partial)"),
+            "tags": tag, "operationId": f"{op_id}_update", **summary("PATCH", "update_name"),
             "parameters": [if_match],
             "requestBody": {**body, "content": {"application/json": {"schema": {
                 **_ref(f"{schema}Input"), "description": "Only the properties to change"}}}},
@@ -189,7 +190,7 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
         }
     if "DELETE" in spec.verbs:
         item["delete"] = {
-            "tags": tag, "operationId": f"{op_id}_delete", **summary("DELETE", f"Delete {doctype}"),
+            "tags": tag, "operationId": f"{op_id}_delete", **summary("DELETE", "delete_name"),
             "parameters": [if_match],
             "responses": {"204": {"description": "Deleted"}, **_errors("401", "403", "404", "412")},
         }
@@ -412,16 +413,17 @@ def build() -> dict:
 
     for spec in specs:
         entity = model.entity(spec.doctype)
-        schema = _entity_schemas(entity, schemas)
+        schema = _entity_schemas(entity, spec.public_name, schemas)
         collection, item = _operations(spec, entity, schema)
         if collection:
             paths[spec.path] = collection
         if item:
             paths[f"{spec.path}/{{name}}"] = item
-        summary = next((d.split("\n")[0] for d in spec.verbs.values() if d), "")
-        tags.append({"name": _tag(spec), "x-displayName": spec.sub_category.capitalize(),
-                     "description": f"`{router.gateway_path(spec.path)}` — {summary or entity.doctype}"})
-        groups.setdefault(spec.sub_route.capitalize(), []).append(_tag(spec))
+        # Routes with a Path share the sub-folder of their Sub Category.
+        group = groups.setdefault(spec.sub_route.capitalize(), [])
+        if _tag(spec) not in group:
+            group.append(_tag(spec))
+            tags.append({"name": _tag(spec), "x-displayName": spec.sub_category.capitalize()})
 
     first_list = next((s.path for s in specs if "GET" in s.verbs), None)
     return {
