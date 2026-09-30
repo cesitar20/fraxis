@@ -71,9 +71,23 @@ class FraxisSettings(Document):
 
     def validate_field_mappings(self):
         seen, public_by_doctype = set(), {}
+        excluded = {
+            (row.ref_doctype, fieldname)
+            for row in self.excluded_fields
+            for fieldname in config.split_fieldnames(row.get("fieldnames"))
+        }
         for row in self.get("field_mappings") or []:
             if not frappe.db.exists("DocType", row.ref_doctype):
                 continue  # the Link validation reports it
+            if (row.ref_doctype, row.fieldname) in excluded:
+                # An excluded field leaves the model before mappings apply: the mapping would do nothing.
+                frappe.throw(
+                    _(
+                        "Field Mappings row {0}: {1}.{2} is also in Excluded Fields, so clients never get it and the "
+                        "mapping does nothing. A mapping already hides the field's own name (and a Lookup its value): "
+                        "remove it from Excluded Fields."
+                    ).format(row.idx, row.ref_doctype, row.fieldname)
+                )
             if (row.ref_doctype, row.fieldname) in seen:
                 frappe.throw(_("Field Mappings row {0}: {1}.{2} is mapped twice").format(row.idx, row.ref_doctype, row.fieldname))
             seen.add((row.ref_doctype, row.fieldname))
