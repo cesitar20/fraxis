@@ -10,6 +10,7 @@ from frappe import _
 from frappe.model.document import Document
 
 from fraxis.gateway import config
+from fraxis.gateway.odata import model
 
 
 class FraxisSettings(Document):
@@ -45,12 +46,10 @@ class FraxisSettings(Document):
             row.fieldname = (row.fieldname or "").strip()
             if not frappe.db.exists("DocType", row.ref_doctype):
                 continue  # the Link validation reports it
-            if row.fieldname == "name":
-                frappe.throw(_("Excluded Fields row {0}: name identifies the document and cannot be excluded").format(row.idx))
-            if row.fieldname not in ("creation", "modified", "docstatus", "idx") and not frappe.get_meta(
-                row.ref_doctype
-            ).has_field(row.fieldname):
-                frappe.throw(_("Excluded Fields row {0}: {1} has no field {2}").format(row.idx, row.ref_doctype, row.fieldname))
+            if row.fieldname not in {f["fieldname"] for f in model.publishable_fields(row.ref_doctype)}:
+                frappe.throw(
+                    _("Excluded Fields row {0}: {1} never returns a field {2}").format(row.idx, row.ref_doctype, row.fieldname)
+                )
             key = (row.ref_doctype, row.fieldname)
             if key in seen:
                 frappe.throw(_("Excluded Fields row {0}: {1}.{2} is listed twice").format(row.idx, *key))
@@ -66,8 +65,11 @@ class FraxisSettings(Document):
             if meta and (meta.istable or meta.issingle or meta.is_virtual):
                 frappe.throw(_("Route row {0}: {1} is a child table, a Single or virtual").format(row.idx, row.ref_doctype))
 
+            row.path, error = config.normalise_sub_path(row.get("path"))
+            if error:
+                frappe.throw(_("Route row {0}: {1}").format(row.idx, error))
             verb = row.http_method or "GET"
-            path = f"/{row.sub_route}/{row.sub_category}"
+            path = f"/{row.sub_route}/{row.sub_category}" + (f"/{row.path}" if row.path else "")
             if (path, verb) in seen:
                 frappe.throw(_("Route row {0}: {1} {2} is defined twice").format(row.idx, verb, path))
             seen.add((path, verb))
@@ -78,7 +80,7 @@ class FraxisSettings(Document):
                     )
                 )
 
-            row.route = config.route_label(self.base_path, row.sub_route, row.sub_category, verb)
+            row.route = config.route_label(self.base_path, row.sub_route, row.sub_category, row.path, verb)
             row.exposed = int(row.ref_doctype in exposed)
 
         hidden = sorted({row.ref_doctype for row in self.routes if not row.exposed})
@@ -94,3 +96,12 @@ class FraxisSettings(Document):
     def on_update(self):
         # Exposure set and the generated OpenAPI document depend on these settings.
         frappe.cache.delete_keys(config.CACHE_PREFIX)
+
+
+@frappe.whitelist()
+def get_doctype_fields(doctype: str) -> list[dict]:
+    """Options of Excluded Fields > Field: what ``doctype`` can return through the gateway."""
+    frappe.only_for("System Manager")
+    if not frappe.db.exists("DocType", doctype):
+        return []
+    return model.publishable_fields(doctype)

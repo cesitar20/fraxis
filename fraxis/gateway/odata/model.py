@@ -50,14 +50,18 @@ class Entity:
         return _props(frappe.get_meta(self.collections[fieldname]), CHILD_STANDARD)[0]
 
 
-def _props(meta, standard: dict[str, str]) -> tuple[dict[str, Prop], dict[str, str]]:
-    excluded = config.excluded_fields().get(meta.name, set())
+STANDARD_LABELS = {"name": "ID", "creation": "Created On", "modified": "Last Updated On",
+                   "docstatus": "Document Status", "idx": "Row Number"}
+
+
+def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tuple[dict[str, Prop], dict[str, str]]:
+    excluded = config.excluded_fields().get(meta.name, set()) if apply_exclusions else set()
     props, collections = {}, {}
     for key, fieldtype in standard.items():
         if key == "docstatus" and not meta.is_submittable:
             continue
         if key not in excluded:
-            props[key] = Prop(key, fieldtype, key, required=key == "name", read_only=True)
+            props[key] = Prop(key, fieldtype, STANDARD_LABELS[key], required=key == "name", read_only=True)
     for df in meta.fields:
         if df.fieldname in excluded:
             continue
@@ -78,6 +82,17 @@ def entity(doctype: str) -> Entity:
     meta = frappe.get_meta(doctype)
     props, collections = _props(meta, STANDARD)
     return Entity(doctype, props, collections, meta.description or "")
+
+
+def publishable_fields(doctype: str) -> list[dict]:
+    """Every field the DocType can return, before exclusions (``name`` identifies the document and
+    is left out): what ``Fraxis Settings > Excluded Fields`` may exclude."""
+    meta = frappe.get_meta(doctype)
+    props, collections = _props(meta, CHILD_STANDARD if meta.istable else STANDARD, apply_exclusions=False)
+    fields = [{"fieldname": n, "label": p.label, "fieldtype": p.fieldtype} for n, p in props.items() if n != "name"]
+    labels = {df.fieldname: df.label for df in meta.fields}
+    fields += [{"fieldname": n, "label": labels.get(n) or n, "fieldtype": "Table"} for n in collections]
+    return fields
 
 
 def schema_name(doctype: str) -> str:
