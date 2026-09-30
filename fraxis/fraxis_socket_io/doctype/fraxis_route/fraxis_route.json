@@ -12,7 +12,15 @@
   "ref_doctype",
   "route",
   "exposed",
-  "description"
+  "description",
+  "api_names_section",
+  "public_name",
+  "api_names_column",
+  "list_name",
+  "get_name",
+  "create_name",
+  "update_name",
+  "delete_name"
  ],
  "fields": [
   {
@@ -84,12 +92,60 @@
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description",
-   "description": "Shown in the API docs; the first line is the summary."
+   "description": "Shown in the API docs under the operation names."
+  },
+  {
+   "fieldname": "api_names_section",
+   "fieldtype": "Section Break",
+   "label": "API Names",
+   "description": "How this route is called in the API docs. Filled with defaults on save; edit them to hide internal names."
+  },
+  {
+   "fieldname": "public_name",
+   "fieldtype": "Data",
+   "label": "Public Name",
+   "description": "Name of the resource in the docs instead of the DocType, e.g. Call Record. Also names its schema."
+  },
+  {
+   "fieldname": "api_names_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.http_method=='GET'",
+   "fieldname": "list_name",
+   "fieldtype": "Data",
+   "label": "List Name",
+   "description": "GET <route>: the collection."
+  },
+  {
+   "depends_on": "eval:doc.http_method=='GET'",
+   "fieldname": "get_name",
+   "fieldtype": "Data",
+   "label": "Get One Name",
+   "description": "GET <route>/{name}: one document."
+  },
+  {
+   "depends_on": "eval:doc.http_method=='POST'",
+   "fieldname": "create_name",
+   "fieldtype": "Data",
+   "label": "Create Name"
+  },
+  {
+   "depends_on": "eval:doc.http_method=='PATCH'",
+   "fieldname": "update_name",
+   "fieldtype": "Data",
+   "label": "Update Name"
+  },
+  {
+   "depends_on": "eval:doc.http_method=='DELETE'",
+   "fieldname": "delete_name",
+   "fieldtype": "Data",
+   "label": "Delete Name"
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-09-30 12:00:00.000000",
+ "modified": "2026-09-30 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fraxis Socket IO",
  "name": "Fraxis Route",
