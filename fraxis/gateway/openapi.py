@@ -7,6 +7,8 @@
 OpenAPI 3.0 document rendered by Scalar at ``<base_path>/docs``.
 
 * ``Authentication`` — token, refresh and revoke with request / response examples.
+* Every route answers with a whole example record (lists: a page of one), built from the same
+  property examples as the schemas, so Scalar shows what comes back next to each request.
 * One folder per Sub Route (Stats, Assistants, Numbers) with a sub-folder per Sub Category
   (``x-tagGroups``: group = Sub Route, tag = Sub Category) holding the routes of exposed
   DocTypes. Schemas and filter parameters come from the same entity model the routes serve,
@@ -20,13 +22,14 @@ OpenAPI 3.0 document rendered by Scalar at ``<base_path>/docs``.
 
 import json
 import re
+from urllib.parse import urlencode
 
 import frappe
 from frappe import _
 
 from fraxis import __version__
 from fraxis.gateway import config, router
-from fraxis.gateway.odata import model, query
+from fraxis.gateway.odata import model, query, serialize
 
 # Public title of the docs: nothing on the page may name the platform behind the API.
 DOCS_TITLE = "API Documentation"
@@ -145,6 +148,24 @@ def _prop_schema(p: model.Prop) -> dict:
     return schema
 
 
+def _sample(p: model.Prop):
+    """Value of a property in the response and body examples: its example, else its title for text."""
+    if p.name == "idx":
+        return 1
+    if (example := _example(p)) not in (None, ""):
+        return example
+    return {} if p.fieldtype == "JSON" else _label(p)
+
+
+def _record_example(entity: model.Entity, write: bool = False, children: bool = True) -> dict:
+    """A whole record as the routes answer it (``write``: as a create body expects it)."""
+    record = {p.public: _sample(p) for p in entity.props.values() if not (write and p.read_only)}
+    for fieldname in entity.collections if children else ():
+        child_props = entity.child_props(fieldname).values()
+        record[entity.public(fieldname)] = [{p.public: _sample(p) for p in child_props if not (write and p.read_only)}]
+    return record
+
+
 def _object(props: dict[str, model.Prop], collections: dict[str, str] | None = None, write: bool = False) -> dict:
     """Properties under their public names. ``collections``: public name -> schema name of its rows."""
     properties = {p.public: _prop_schema(p) for p in props.values() if not (write and p.read_only)}
@@ -241,9 +262,18 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
     security = [{SECURITY_SCHEME: []}]
     public_name = _(spec.public_name)
     op_id = re.sub(r"[^A-Za-z0-9_]", "_", "_".join(spec.segments))
-    one = {"description": _("Record"), "headers": {"ETag": {"schema": {"type": "string"}}},
-           "content": {"application/json": {"schema": _ref(schema)}}}
-    body = {"required": True, "content": {"application/json": {"schema": _ref(f"{schema}Input")}}}
+    # Explicit examples: Scalar shows them in the response and request panels next to the curl.
+    etag = serialize.etag("2026-09-01 14:30:00.000000")
+    record = {"@odata.etag": etag, **_record_example(entity)}
+    page_size = config.get_int("page_size")
+    page = {"@odata.count": 1, "value": [_record_example(entity, children=False)],
+            "@odata.nextLink": f"{router.gateway_url(spec.path)}?{urlencode({'$skip': page_size, '$top': page_size})}"}
+    new_record = _record_example(entity, write=True)
+    editable = [p.public for p in entity.props.values() if not p.read_only and p.name != "naming_series"]
+    changes = {k: new_record[k] for k in editable[:2]}
+    one = {"description": _("Record"), "headers": {"ETag": {"schema": {"type": "string", "example": etag}}},
+           "content": {"application/json": {"schema": _ref(schema), "example": record}}}
+    body = {"required": True, "content": {"application/json": {"schema": _ref(f"{schema}Input"), "example": new_record}}}
     if_match = {"name": "If-Match", "in": "header", "schema": {"type": "string"},
                 "description": _("ETag of a previous read (`@odata.etag`); 412 if the record changed since")}
     key_param = {"name": entity.public("name"), "in": "path", "required": True,
@@ -268,7 +298,7 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
                         "@odata.nextLink": {"type": "string", "format": "uri",
                                             "description": _("Next page; absent on the last one")},
                     },
-                }}}},
+                }, "example": page}}},
                 **_errors("400", "401", "403"),
             },
         }
@@ -290,7 +320,7 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
             "tags": tag, "operationId": f"{op_id}_update", "security": security, **summary("PATCH", "update_name"),
             "parameters": [if_match],
             "requestBody": {**body, "content": {"application/json": {"schema": {
-                **_ref(f"{schema}Input"), "description": _("Only the properties to change")}}}},
+                **_ref(f"{schema}Input"), "description": _("Only the properties to change")}, "example": changes}}},
             "responses": {"200": one, **_errors("400", "401", "403", "404", "412")},
         }
     if "DELETE" in spec.verbs:
