@@ -178,7 +178,7 @@ class FraxisSettings(Document):
     @staticmethod
     def row_path(row) -> str:
         sub_path = config.normalise_sub_path(row.get("path"))[0]
-        return f"/{row.sub_route}/{row.sub_category}" + (f"/{sub_path}" if sub_path else "")
+        return "/" + "/".join(filter(None, (row.sub_route, row.sub_category, sub_path)))
 
     def public_names_by_path(self) -> dict[str, str]:
         """The Public Name typed on any row of a path names every row of that path."""

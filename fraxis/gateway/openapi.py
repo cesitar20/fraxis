@@ -247,8 +247,10 @@ def _odata_parameters(entity: model.Entity) -> list[dict]:
 def _tag(spec: config.RouteSpec) -> str:
     """Tag of a route, unique per Sub Route + Sub Category. Scalar shows its x-displayName inside
     the Sub Route folder; importers (Postman, Bruno) name their folder after the tag itself, so it
-    reads as "Stats - Records" rather than an identifier."""
-    return f"{_(spec.sub_route.capitalize())} - {_(spec.sub_category.capitalize())}"
+    reads as "Stats - Records" rather than an identifier. Without a Sub Category it is the Sub
+    Route itself ("Campaigns")."""
+    section = _(spec.sub_route.capitalize())
+    return f"{section} - {_(spec.sub_category.capitalize())}" if spec.sub_category else section
 
 
 def _auth_tag() -> str:
@@ -539,7 +541,10 @@ def build() -> dict:
         group = groups.setdefault(_(spec.sub_route.capitalize()), [])
         if _tag(spec) not in group:
             group.append(_tag(spec))
-            tags.append({"name": _tag(spec), "x-displayName": _(spec.sub_category.capitalize())})
+            # Without a Sub Category the folder is named after the route's Public Name: Scalar hides
+            # tags outside x-tagGroups, and the Sub Route would only repeat the section title.
+            display = _(spec.sub_category.capitalize()) if spec.sub_category else _(spec.public_name)
+            tags.append({"name": _tag(spec), "x-displayName": display})
 
     first_list = next((s.path for s in specs if "GET" in s.verbs), None)
     return {

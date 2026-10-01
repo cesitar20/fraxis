@@ -4,10 +4,10 @@
 // Live preview of the Route column; the server recomputes it on save (config.route_label).
 function fraxis_route_label(frm, row) {
 	const base = "/" + (frm.doc.base_path || "/fraxis").trim().replace(/^\/+|\/+$/g, "");
-	if (!row.sub_route || !row.sub_category) return "";
+	if (!row.sub_route) return "";
 	const path = (row.path || "").trim().replace(/^\/+|\/+$/g, "");
 	const item = ["PATCH", "DELETE"].includes(row.http_method) ? "/{name}" : "";
-	return `${base}/${row.sub_route}/${row.sub_category}${path ? "/" + path : ""}${item}`;
+	return `${base}/${[row.sub_route, row.sub_category, path].filter(Boolean).join("/")}${item}`;
 }
 
 function fraxis_set_route(frm, cdt, cdn) {

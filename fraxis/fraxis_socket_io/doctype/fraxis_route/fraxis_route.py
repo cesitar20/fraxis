@@ -7,4 +7,4 @@ from frappe.model.document import Document
 
 
 class FraxisRoute(Document):
-    """Gateway route ``<base_path>/<sub_route>/<sub_category>`` over a DocType (row of Fraxis Settings)."""
+    """Gateway route ``<base_path>/<sub_route>[/<sub_category>]`` over a DocType (row of Fraxis Settings)."""

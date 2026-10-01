@@ -8,7 +8,7 @@ Fraxis REST gateway: masked routes over Frappe DocTypes, documented with Scalar.
 
 Every public path is declared in ``Fraxis Settings > Routes``::
 
-    <base_path>/<sub_route>/<sub_category>[/<name>]      e.g. /fraxis/stats/records
+    <base_path>/<sub_route>[/<sub_category>][/<name>]    e.g. /fraxis/stats/records, /fraxis/campaigns
 
 and answered by Frappe's own document API (``frappe.get_list``, ``Document.insert`` /
 ``save``, ``frappe.delete_doc``) on the row's DocType, so permissions, controllers and hooks

@@ -200,7 +200,7 @@ def default_operation_names(http_method: str, public_name: str) -> dict[str, str
 
 @dataclass
 class RouteSpec:
-    """Every row of ``Fraxis Settings > Routes`` sharing one ``/<sub_route>/<sub_category>[/<path>]``."""
+    """Every row of ``Fraxis Settings > Routes`` sharing one ``/<sub_route>[/<sub_category>][/<path>]``."""
 
     sub_route: str
     sub_category: str
@@ -212,7 +212,7 @@ class RouteSpec:
 
     @property
     def segments(self) -> tuple[str, ...]:
-        return (self.sub_route, self.sub_category, *filter(None, self.sub_path.split("/")))
+        return tuple(filter(None, (self.sub_route, self.sub_category, *self.sub_path.split("/"))))
 
     @property
     def path(self) -> str:
@@ -231,7 +231,8 @@ def route_label(base: str, sub_route: str, sub_category: str, sub_path: str, htt
     """What the Route column shows: the collection path, or ``/{name}`` for item-only verbs."""
     extra = f"/{sub_path}" if sub_path else ""
     suffix = "/{name}" if http_method in ("PATCH", "DELETE") else ""
-    return f"{base}/{sub_route}/{sub_category}{extra}{suffix}"
+    category = f"/{sub_category}" if sub_category else ""
+    return f"{base}/{sub_route}{category}{extra}{suffix}"
 
 
 def routes() -> dict[tuple[str, ...], RouteSpec]:
@@ -240,10 +241,10 @@ def routes() -> dict[tuple[str, ...], RouteSpec]:
     doc = settings()
     for row in (doc.routes if doc else None) or []:
         sub_path, error = normalise_sub_path(row.get("path"))
-        if error or not (row.sub_route and row.sub_category and row.ref_doctype):
+        if error or not (row.sub_route and row.ref_doctype):
             continue
         public_name = row.get("public_name") or row.ref_doctype
-        spec = RouteSpec(row.sub_route, row.sub_category, row.ref_doctype, sub_path, public_name)
+        spec = RouteSpec(row.sub_route, row.sub_category or "", row.ref_doctype, sub_path, public_name)
         spec = out.setdefault(spec.segments, spec)
         if spec.doctype == row.ref_doctype:
             verb = row.http_method or "GET"
