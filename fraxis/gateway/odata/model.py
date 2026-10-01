@@ -117,12 +117,26 @@ def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tup
                 options=df.options if df.fieldtype in ("Select", "Data") else None,  # choices / Email, Phone, URL
                 public=public(df.fieldname),
                 description=description(df.fieldname, df.description),
-                # The field's Placeholder (DocType or Customize Form) doubles as its example.
-                example=example(df.fieldname) or (df.get("placeholder") or "").strip(),
+                # The field's Placeholder (DocType or Customize Form) doubles as its example; a
+                # Lookup shows a value clients send instead (e.g. an assistant ID, not its flow).
+                example=example(df.fieldname)
+                or (_lookup_example(lookup(df.fieldname)) if lookup(df.fieldname) else (df.get("placeholder") or "").strip()),
                 lookup=lookup(df.fieldname),
                 lookup_restrict=lookup_restrict(df.fieldname),
             )
     return props, collections
+
+
+def _lookup_example(lookup: tuple[str, str, str]) -> str:
+    """Example of a Lookup field: its value field's, in the Lookup DocType (an ID for ``name``)."""
+    doctype, _match, value_field = lookup
+    if not frappe.db.exists("DocType", doctype):
+        return ""
+    meta = frappe.get_meta(doctype)
+    if value_field == "name":
+        return _name_example(meta)
+    df = meta.get_field(value_field)
+    return (df.get("placeholder") or "").strip() if df else ""
 
 
 def _name_example(meta) -> str:
