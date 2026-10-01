@@ -68,7 +68,6 @@ Not found,No encontrado
 No route {0},No existe la ruta {0}
 Authentication required,Se requiere autenticación
 grant_type must be client_credentials or refresh_token,grant_type debe ser client_credentials o refresh_token
-Log in to read the API documentation,Inicia sesión para leer la documentación del API
 API Documentation,Documentación del API
 Language,Idioma
 Stats,Estadísticas

@@ -117,22 +117,17 @@ def _oauth_error(code: str, description: str, status: int) -> Response:
 
 # --- documentation ---------------------------------------------------------------------------
 
-def _docs_allowed() -> bool:
-    return frappe.session.user != "Guest" or bool((config.settings() or frappe._dict()).public_docs)
-
-
 def _docs_language(lang: str | None) -> str:
     """The requested docs language when offered in Fraxis Settings, else the first one offered."""
     languages = config.docs_languages()
     return lang if lang in languages else languages[0]
 
 
+# The docs and their document are public: clients read them without any login of the platform.
 @frappe.whitelist(allow_guest=True, methods=["GET"])
 def openapi_spec(lang: str | None = None):
     if router.current() is None:
         return serialize.error_response(404, "NotFound", _("Not found"))
-    if not _docs_allowed():
-        return serialize.error_response(403, "Forbidden", _("Log in to read the API documentation"))
     lang = _docs_language(lang)
     cache_key = f"{config.CACHE_PREFIX}openapi:{router.gateway_url()}:{lang}"
     spec = frappe.cache.get_value(cache_key)
@@ -284,12 +279,6 @@ def _json_for_script(value) -> str:
 def docs(lang: str | None = None):
     if router.current() is None:
         return serialize.error_response(404, "NotFound", _("Not found"))
-    if not _docs_allowed():
-        from urllib.parse import quote
-
-        from werkzeug.utils import redirect
-
-        return redirect(f"/login?redirect-to={quote(router.original_path())}")
     lang = _docs_language(lang)
     scalar_config = {
         "url": router.gateway_path("/openapi.json") + f"?lang={lang}",

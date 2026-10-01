@@ -9,7 +9,6 @@
   "disable_gateway",
   "base_path",
   "gateway_column",
-  "public_docs",
   "docs_languages",
   "auth_section",
   "access_token_ttl",
@@ -57,13 +56,6 @@
   {
    "fieldname": "gateway_column",
    "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "public_docs",
-   "fieldtype": "Check",
-   "label": "Public Docs",
-   "description": "Let anyone open <base_path>/docs (Scalar) and <base_path>/openapi.json. Off: a desk session is required."
   },
   {
    "default": "en\nes",
@@ -205,7 +197,7 @@
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-10-01 09:00:00.000000",
+ "modified": "2026-10-01 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fraxis Socket IO",
  "name": "Fraxis Settings",
