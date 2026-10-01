@@ -31,8 +31,8 @@ from fraxis import __version__
 from fraxis.gateway import config, router
 from fraxis.gateway.odata import model, query, serialize
 
-# Public title of the docs: nothing on the page may name the platform behind the API.
-DOCS_TITLE = "API Documentation"
+# Public title of the docs: the product's name only, nothing of the platform behind the API.
+DOCS_TITLE = "Go4Clients AI API Documentation"
 INT_TYPES = ("Int", "Long Int", "Duration")
 FLOAT_TYPES = ("Float", "Currency", "Percent", "Rating")
 ERROR_EXAMPLES = {
