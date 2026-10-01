@@ -88,9 +88,10 @@ def row(props: dict[str, Prop], data: dict) -> dict:
     return {prop.public: value(prop, data.get(key)) for key, prop in props.items() if key in data}
 
 
-def document(entity: Entity, doc, select: list[str] | None = None) -> dict:
-    """``select``: fieldnames (already translated from public names) to keep besides ``name``."""
-    data = doc.as_dict()
+def document(entity: Entity, doc, select: list[str] | None = None, data: dict | None = None) -> dict:
+    """``select``: fieldnames (already translated from public names) to keep besides ``name``;
+    ``data``: ``doc.as_dict()`` when the caller already has it (adjusted by apps)."""
+    data = data if data is not None else doc.as_dict()
     props = {k: p for k, p in entity.props.items() if not select or k in select or k == "name"}
     out = row(props, data)
     for fieldname in entity.collections:

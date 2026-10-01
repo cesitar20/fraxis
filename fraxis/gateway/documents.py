@@ -17,6 +17,11 @@ hooks apply unchanged:
 The caller's Extra Params (:mod:`fraxis.gateway.scope`) are applied before each call and
 only properties of the entity model (:mod:`fraxis.gateway.odata.model`) go in or out.
 
+Apps can adjust what a DocType's routes return with the ``fraxis_response_rows`` hook
+(``{"<DocType>": "dotted.path"}`` in their hooks.py): the function gets the doctype and the rows
+about to be answered — Frappe rows under fieldnames, child tables included for a single
+document — and changes them in place, e.g. to hide an internal part of a value.
+
 A document created here carries ``doc.flags.gateway_fields``: the fieldnames the request set
 (after Extra Params). Controllers can tell a gateway insert apart from any other, and a field
 the client left out (filled by its DocType default) from one it sent.
@@ -94,6 +99,7 @@ def list_documents(route: router.Route, entity: model.Entity):
             order_by=None,
         )
         payload["@odata.count"] = total[0].total if total else 0
+    _adjust_rows(entity.doctype, rows)
     payload["value"] = lookup.publish(entity, [serialize.row(entity.props, r) for r in rows])
     if len(rows) == q.top:
         next_args = {**args.to_dict(), "$skip": q.skip + q.top, "$top": q.top}
@@ -137,8 +143,16 @@ def delete_document(route: router.Route, entity: model.Entity):
     return serialize.empty_response()
 
 
+def _adjust_rows(doctype: str, rows: list) -> None:
+    """Run the apps' ``fraxis_response_rows`` hooks for ``doctype`` on the rows to answer."""
+    for method in frappe.get_hooks("fraxis_response_rows", {}).get(doctype, []):
+        frappe.get_attr(method)(doctype, rows)
+
+
 def _document_response(entity, doc, status: int = 200, headers: dict | None = None, select=None):
     doc.apply_fieldlevel_read_permissions()
-    payload = lookup.publish(entity, [serialize.document(entity, doc, select)])[0]
+    data = doc.as_dict()
+    _adjust_rows(entity.doctype, [data])
+    payload = lookup.publish(entity, [serialize.document(entity, doc, select, data)])[0]
     etag = payload.get("@odata.etag")
     return serialize.json_response(payload, status, {**({"ETag": etag} if etag else {}), **(headers or {})})
