@@ -36,7 +36,7 @@ class Prop:
     label: str = ""
     required: bool = False
     options: str | None = None  # Select choices / Data kind (Email, Phone, URL)
-    read_only: bool = False  # standard columns; the DocType's own fields stay writable as in Frappe's API
+    read_only: bool = False  # standard columns and fields Read Only in the DocType: returned, never written
     public: str = ""  # name clients see and send (Fraxis Settings > Field Mappings); the fieldname by default
     description: str = ""  # the field's description, when the docs show it
     example: str = ""  # Field Mappings > Example, else the field's Placeholder; the docs fall back to the fieldtype
@@ -111,6 +111,9 @@ def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tup
                 df.fieldtype,
                 df.label or df.fieldname,
                 required=bool(df.reqd),
+                # Read Only in the DocType (or Customize Form): computed or set by the system, so
+                # clients read it but never send it, and the docs leave it out of request bodies.
+                read_only=bool(df.read_only),
                 options=df.options if df.fieldtype in ("Select", "Data") else None,  # choices / Email, Phone, URL
                 public=public(df.fieldname),
                 description=description(df.fieldname, df.description),
