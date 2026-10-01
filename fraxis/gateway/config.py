@@ -24,7 +24,7 @@ CACHE_PREFIX = "fraxis_gateway:"
 DEFAULT_BASE_PATH = "/fraxis"
 # Frappe's own top-level routes: a gateway prefix here would shadow or be shadowed by them.
 RESERVED_PREFIXES = ("/api", "/app", "/assets", "/files", "/private", "/backups", "/socket.io", "/login", "/desk")
-SUB_ROUTES = ("stats", "assistants", "numbers")
+SUB_ROUTES = ("stats", "assistants", "numbers", "campaigns")
 # The gateway's own configuration and credentials are never served, whatever the settings say.
 NEVER_EXPOSED = frozenset(
     {"Fraxis Settings", "Fraxis User Profile", "Fraxis Sub Category", "Fraxis Refresh Token", "DocType", "User"}

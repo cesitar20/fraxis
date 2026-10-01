@@ -39,7 +39,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Sub Route",
-   "options": "stats\nassistants\nnumbers",
+   "options": "stats\nassistants\nnumbers\ncampaigns",
    "reqd": 1,
    "description": "Second URL segment; also the section title of the route in the API docs."
   },
@@ -145,7 +145,7 @@
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-09-30 15:00:00.000000",
+ "modified": "2026-10-02 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fraxis Socket IO",
  "name": "Fraxis Route",

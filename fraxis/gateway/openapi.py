@@ -9,7 +9,7 @@ OpenAPI 3.0 document rendered by Scalar at ``<base_path>/docs``.
 * ``Authentication`` — token, refresh and revoke with request / response examples.
 * Every route answers with a whole example record (lists: a page of one), built from the same
   property examples as the schemas, so Scalar shows what comes back next to each request.
-* One folder per Sub Route (Stats, Assistants, Numbers) with a sub-folder per Sub Category
+* One folder per Sub Route (Stats, Assistants, Numbers, Campaigns) with a sub-folder per Sub Category
   (``x-tagGroups``: group = Sub Route, tag = Sub Category) holding the routes of exposed
   DocTypes. Schemas and filter parameters come from the same entity model the routes serve,
   under the public names of Field Mappings, so excluded fields never appear.
