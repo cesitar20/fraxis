@@ -79,6 +79,8 @@ class FraxisSettings(Document):
         for row in self.get("field_mappings") or []:
             if not frappe.db.exists("DocType", row.ref_doctype):
                 continue  # the Link validation reports it
+            if row.fieldname == "name" and (row.get("returned_in") or "Lists and Records") != "Lists and Records":
+                frappe.throw(_("Field Mappings row {0}: the ID is always returned; set Returned In to Lists and Records").format(row.idx))
             if (row.ref_doctype, row.fieldname) in excluded:
                 # An excluded field leaves the model before mappings apply: the mapping would do nothing.
                 frappe.throw(

@@ -75,7 +75,7 @@ def field_parameters(entity: Entity) -> dict[str, FieldParam]:
     instead of an equality that would never be exact."""
     params: dict[str, FieldParam] = {}
     for fieldname, prop in entity.props.items():
-        if prop.fieldtype in UNFILTERABLE:
+        if prop.fieldtype in UNFILTERABLE or prop.write_only:
             continue
         params[prop.public] = FieldParam(fieldname, prop, "day" if prop.fieldtype == "Datetime" else "=")
         if prop.fieldtype in ("Date", "Datetime") and not prop.lookup:
@@ -96,7 +96,9 @@ def check_options(args, allowed) -> None:
 
 def _fieldname(entity: Entity, public: str, where: str, collections: bool = False) -> str:
     fieldname = entity.fieldname(public)
-    if not fieldname or (fieldname in entity.collections and not collections):
+    prop = entity.props.get(fieldname)
+    # A write-only property (Returned In = Never) is unknown to reads: it cannot be probed either.
+    if not fieldname or (fieldname in entity.collections and not collections) or (prop and prop.write_only):
         raise ODataError(f"Unknown property in {where}: {public!r}")
     return fieldname
 
@@ -229,7 +231,9 @@ def _int_option(args, key: str, default: int) -> int:
 def parse_list(entity: Entity, args, page_size: int, max_page_size: int) -> ListQuery:
     params = field_parameters(entity)
     check_options(args, LIST_OPTIONS | params.keys())
-    fields = select(entity, args.get("$select")) or list(entity.props)
+    fields = select(entity, args.get("$select")) or [k for k, p in entity.props.items() if p.in_lists]
+    if hidden := [entity.props[f].public for f in fields if f in entity.props and not entity.props[f].in_lists]:
+        raise ODataError(f"Not returned in lists, read one record instead: {', '.join(hidden)}")
     if "name" not in fields:
         fields.insert(0, "name")
 

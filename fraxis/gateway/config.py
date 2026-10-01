@@ -152,6 +152,7 @@ class FieldMapping:
     example: str = ""
     lookup: tuple[str, str, str] | None = None  # (DocType, match field, value field) clients see instead
     lookup_restrict: bool = True  # limit rows to values of the lookup records the client sees
+    returned_in: str = "Lists and Records"  # | "Records Only" | "Never" (write-only)
 
 
 def field_mappings() -> dict[str, dict[str, FieldMapping]]:
@@ -168,6 +169,7 @@ def field_mappings() -> dict[str, dict[str, FieldMapping]]:
                 if row.get("lookup_doctype") and row.get("lookup_field")
                 else None,
                 row.get("lookup_restrict") is None or bool(row.lookup_restrict),  # unset: restrict
+                row.get("returned_in") or "Lists and Records",
             )
     return out
 

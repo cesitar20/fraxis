@@ -42,6 +42,8 @@ class Prop:
     example: str = ""  # Field Mappings > Example, else the field's Placeholder; the docs fall back to the fieldtype
     lookup: tuple[str, str, str] | None = None  # Field Mappings > Lookup (see fraxis.gateway.lookup)
     lookup_restrict: bool = True  # Field Mappings > Restrict Rows
+    in_lists: bool = True  # Field Mappings > Returned In: returned by lists
+    write_only: bool = False  # Returned In = Never: accepted in bodies, never returned, filtered nor sorted
 
 
 @dataclass
@@ -88,6 +90,9 @@ def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tup
     def lookup_restrict(fieldname: str) -> bool:
         return mappings[fieldname].lookup_restrict if fieldname in mappings else True
 
+    def returned_in(fieldname: str) -> str:
+        return mappings[fieldname].returned_in if fieldname in mappings else "Lists and Records"
+
     def description(fieldname: str, text: str | None) -> str:
         return (text or "") if fieldname not in mappings or mappings[fieldname].show_description else ""
 
@@ -123,6 +128,8 @@ def _props(meta, standard: dict[str, str], apply_exclusions: bool = True) -> tup
                 or (_lookup_example(lookup(df.fieldname)) if lookup(df.fieldname) else (df.get("placeholder") or "").strip()),
                 lookup=lookup(df.fieldname),
                 lookup_restrict=lookup_restrict(df.fieldname),
+                in_lists=returned_in(df.fieldname) == "Lists and Records",
+                write_only=returned_in(df.fieldname) == "Never",
             )
     return props, collections
 

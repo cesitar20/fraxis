@@ -92,7 +92,9 @@ def document(entity: Entity, doc, select: list[str] | None = None, data: dict | 
     """``select``: fieldnames (already translated from public names) to keep besides ``name``;
     ``data``: ``doc.as_dict()`` when the caller already has it (adjusted by apps)."""
     data = data if data is not None else doc.as_dict()
-    props = {k: p for k, p in entity.props.items() if not select or k in select or k == "name"}
+    props = {
+        k: p for k, p in entity.props.items() if not p.write_only and (not select or k in select or k == "name")
+    }
     out = row(props, data)
     for fieldname in entity.collections:
         if not select or fieldname in select:

@@ -157,22 +157,36 @@ def _sample(p: model.Prop):
     return {} if p.fieldtype == "JSON" else _label(p)
 
 
-def _record_example(entity: model.Entity, write: bool = False, children: bool = True) -> dict:
-    """A whole record as the routes answer it (``write``: as a create body expects it)."""
-    record = {p.public: _sample(p) for p in entity.props.values() if not (write and p.read_only)}
-    for fieldname in entity.collections if children else ():
+def _shown(p: model.Prop, write: bool = False, list_item: bool = False) -> bool:
+    """Whether a property belongs to a request body (``write``), a list row or a whole record."""
+    if write:
+        return not p.read_only
+    return not p.write_only and (p.in_lists or not list_item)
+
+
+def _record_example(entity: model.Entity, write: bool = False, list_item: bool = False) -> dict:
+    """A record as the routes answer it (``list_item``: a row of a list, without child tables;
+    ``write``: as a create body expects it)."""
+    record = {p.public: _sample(p) for p in entity.props.values() if _shown(p, write, list_item)}
+    for fieldname in entity.collections if not list_item else ():
         child_props = entity.child_props(fieldname).values()
-        record[entity.public(fieldname)] = [{p.public: _sample(p) for p in child_props if not (write and p.read_only)}]
+        record[entity.public(fieldname)] = [{p.public: _sample(p) for p in child_props if _shown(p, write)}]
     return record
 
 
-def _object(props: dict[str, model.Prop], collections: dict[str, str] | None = None, write: bool = False) -> dict:
+def _object(props: dict[str, model.Prop], collections: dict[str, str] | None = None, write: bool = False,
+            list_item: bool = False) -> dict:
     """Properties under their public names. ``collections``: public name -> schema name of its rows."""
-    properties = {p.public: _prop_schema(p) for p in props.values() if not (write and p.read_only)}
+    properties = {p.public: _prop_schema(p) for p in props.values() if _shown(p, write, list_item)}
     for public, child_schema in (collections or {}).items():
         properties[public] = {"type": "array", "items": _ref(child_schema)}
     required = [p.public for p in props.values() if p.required and p.public in properties]
     return {"type": "object", "properties": properties, **({"required": required} if required else {})}
+
+
+def _list_schema(entity: model.Entity, name: str) -> str:
+    """Schema of a list row: the record's own unless some property is left out of lists."""
+    return f"{name}ListItem" if any(not p.in_lists and not p.write_only for p in entity.props.values()) else name
 
 
 def _entity_schemas(entity: model.Entity, public_name: str, schemas: dict) -> str:
@@ -182,6 +196,9 @@ def _entity_schemas(entity: model.Entity, public_name: str, schemas: dict) -> st
     by_public = {entity.public(f): schema for f, schema in children.items()}
     schemas[name] = {**_object(entity.props, by_public), "description": _(public_name)}
     schemas[f"{name}Input"] = _object(entity.props, by_public, write=True)
+    if _list_schema(entity, name) != name:
+        # Some property is not returned by lists (Field Mappings > Returned In): rows get their own schema.
+        schemas[_list_schema(entity, name)] = {**_object(entity.props, list_item=True), "description": _(public_name)}
     for fieldname, child_schema in children.items():
         schemas.setdefault(child_schema, _object(entity.child_props(fieldname)))
     return name
@@ -287,7 +304,7 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
     etag = serialize.etag("2026-09-01 14:30:00.000000")
     record = {"@odata.etag": etag, **_record_example(entity)}
     page_size = config.get_int("page_size")
-    page = {"@odata.count": 1, "value": [_record_example(entity, children=False)],
+    page = {"@odata.count": 1, "value": [_record_example(entity, list_item=True)],
             "@odata.nextLink": f"{router.gateway_url(spec.path)}?{urlencode({'$skip': page_size, '$top': page_size})}"}
     new_record = _record_example(entity, write=True)
     editable = [p.public for p in entity.props.values() if not p.read_only and p.name != "naming_series"]
@@ -315,7 +332,7 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
                     "type": "object",
                     "properties": {
                         "@odata.count": {"type": "integer", "description": _("Only with $count=true")},
-                        "value": {"type": "array", "items": _ref(schema)},
+                        "value": {"type": "array", "items": _ref(_list_schema(entity, schema))},
                         "@odata.nextLink": {"type": "string", "format": "uri",
                                             "description": _("Next page; absent on the last one")},
                     },
