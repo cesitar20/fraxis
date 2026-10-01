@@ -123,6 +123,9 @@ def create_document(route: router.Route, entity: model.Entity):
     doc.flags.gateway_fields = frozenset(data)
     doc.insert()
     location = router.gateway_url(f"{route.spec.path}/{doc.name}")
+    if route.spec.verbs["POST"].get("id_only"):
+        # Create Response = ID Only: the new ID under its public name (e.g. campaign_id).
+        return serialize.json_response({entity.public("name"): doc.name}, 201, {"Location": location})
     return _document_response(entity, doc, 201, {"Location": location})
 
 

@@ -257,6 +257,25 @@ def _auth_tag() -> str:
     return _("Access tokens")
 
 
+def _created(spec: config.RouteSpec, entity: model.Entity, record: dict) -> dict:
+    """201 of a POST: the whole record, or only its ID when the route's Create Response is ID Only."""
+    description = _("Created; `Location` has its URL")
+    if not spec.verbs["POST"].get("id_only"):
+        return {**record, "description": description}
+    key = entity.public("name")
+    example = _sample(entity.props["name"])
+    return {
+        "description": description,
+        "headers": {"Location": {"schema": {"type": "string", "format": "uri"},
+                                 "example": router.gateway_url(f"{spec.path}/{example}")}},
+        "content": {"application/json": {
+            "schema": {"type": "object", "required": [key], "properties": {
+                key: {"type": "string", "description": _("ID of the created record")}}},
+            "example": {key: example},
+        }},
+    }
+
+
 def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tuple[dict, dict]:
     tag = [_tag(spec)]
     # Declared on every operation, not only at the root: importers then give each request its own
@@ -314,8 +333,7 @@ def _operations(spec: config.RouteSpec, entity: model.Entity, schema: str) -> tu
         collection["post"] = {
             "tags": tag, "operationId": f"{op_id}_create", "security": security, **summary("POST", "create_name"),
             "requestBody": body,
-            "responses": {"201": {**one, "description": _("Created; `Location` has its URL")},
-                          **_errors("400", "401", "403", "409")},
+            "responses": {"201": _created(spec, entity, one), **_errors("400", "401", "403", "409")},
         }
     if "PATCH" in spec.verbs:
         item["patch"] = {

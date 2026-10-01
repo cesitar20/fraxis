@@ -207,7 +207,7 @@ class RouteSpec:
     doctype: str
     sub_path: str = ""  # the row's optional Path: extra segments after the Sub Category
     public_name: str = ""  # what the docs call the resource instead of the DocType
-    # HTTP method -> {"description": str, "names": {row field: operation name}}
+    # HTTP method -> {"description": str, "names": {row field: operation name}, "id_only": bool}
     verbs: dict[str, dict] = field(default_factory=dict)
 
     @property
@@ -250,7 +250,12 @@ def routes() -> dict[tuple[str, ...], RouteSpec]:
             verb = row.http_method or "GET"
             names = default_operation_names(verb, spec.public_name)
             names.update({f: row.get(f) for f in names if row.get(f)})
-            spec.verbs[verb] = {"description": row.description or "", "names": names}
+            spec.verbs[verb] = {
+                "description": row.description or "",
+                "names": names,
+                # POST only: answer the new record's ID instead of the whole record.
+                "id_only": verb == "POST" and row.get("create_response") == "ID Only",
+            }
     return out
 
 

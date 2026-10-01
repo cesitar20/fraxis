@@ -25,6 +25,7 @@ Only with $count=true,Solo con $count=true
 Next page; absent on the last one,Página siguiente; no aparece en la última
 "Properties to return, separated by commas (child tables allowed)","Propiedades a devolver, separadas por comas (se permiten tablas hijas)"
 Created; `Location` has its URL,Creado; `Location` tiene su URL
+ID of the created record,ID del registro creado
 Only the properties to change,Solo las propiedades a cambiar
 Deleted,Eliminado
 Get an access token,Obtener un token de acceso
