@@ -16,6 +16,10 @@ hooks apply unchanged:
 
 The caller's Extra Params (:mod:`fraxis.gateway.scope`) are applied before each call and
 only properties of the entity model (:mod:`fraxis.gateway.odata.model`) go in or out.
+
+A document created here carries ``doc.flags.gateway_fields``: the fieldnames the request set
+(after Extra Params). Controllers can tell a gateway insert apart from any other, and a field
+the client left out (filled by its DocType default) from one it sent.
 """
 
 from urllib.parse import urlencode
@@ -109,7 +113,9 @@ def read_document(route: router.Route, entity: model.Entity):
 def create_document(route: router.Route, entity: model.Entity):
     data = _parse_body(entity)
     scope.apply_to_new(entity.doctype, data)
-    doc = frappe.get_doc({**data, "doctype": entity.doctype}).insert()
+    doc = frappe.get_doc({**data, "doctype": entity.doctype})
+    doc.flags.gateway_fields = frozenset(data)
+    doc.insert()
     location = router.gateway_url(f"{route.spec.path}/{doc.name}")
     return _document_response(entity, doc, 201, {"Location": location})
 

@@ -7,13 +7,14 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from fraxis.gateway import scope
+from fraxis.gateway import scope, user
 
 
 class FraxisUserProfile(Document):
     """Gateway access of one User, kept beside ``User`` instead of customising the core DocType."""
 
     def validate(self):
+        self.validate_integration_data()
         for row in self.extra_params:
             if not frappe.db.exists("DocType", row.ref_doctype):
                 continue  # the Link validation reports it
@@ -29,3 +30,10 @@ class FraxisUserProfile(Document):
                 scope.cast(row.value, row.fieldtype)
             except ValueError:
                 frappe.throw(_("Extra Params row {0}: {1} is not a valid {2}").format(row.idx, row.value, row.fieldtype))
+
+    def validate_integration_data(self):
+        """Integration Data must be a JSON object: apps read it by key (``user.profile_data``)."""
+        try:
+            user.parse_data(self.integration_data)
+        except ValueError:
+            frappe.throw(_("Integration Data must be a JSON object, e.g. {0}").format('{"token": "..."}'))

@@ -11,7 +11,9 @@
   "column_break_main",
   "api_enabled",
   "extra_params_section",
-  "extra_params"
+  "extra_params",
+  "integration_data_section",
+  "integration_data"
  ],
  "fields": [
   {
@@ -54,10 +56,21 @@
    "fieldtype": "Table",
    "label": "Extra Params",
    "options": "Fraxis Profile Param"
+  },
+  {
+   "fieldname": "integration_data_section",
+   "fieldtype": "Section Break",
+   "label": "Integration Data",
+   "description": "A JSON object other apps read while serving this user's requests, e.g. {\"token\": \"...\"}. They may add keys of their own (cached data); never sent to API clients."
+  },
+  {
+   "fieldname": "integration_data",
+   "fieldtype": "JSON",
+   "label": "Integration Data"
   }
  ],
  "links": [],
- "modified": "2026-09-29 20:00:00.000000",
+ "modified": "2026-10-02 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fraxis Socket IO",
  "name": "Fraxis User Profile",
